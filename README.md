@@ -55,6 +55,7 @@ PriceShield aims to protect consumers from overcharging by providing an easy way
 
   <img width="481" height="465" alt="Screenshot 2026-02-05 175825" src="https://github.com/user-attachments/assets/f5cba664-dd1a-417d-9027-ed03d24505a7" />
 
+
 ## 👨‍💻 Developed By
 
 **Manish Sukariya**

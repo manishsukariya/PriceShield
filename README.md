@@ -33,6 +33,7 @@ PriceShield aims to protect consumers from overcharging by providing an easy way
 ## 📱 Screenshots
 
 - Home page
+  
 <img width="551" height="827" alt="Screenshot 2026-02-05 170254" src="https://github.com/user-attachments/assets/4b9a46ca-db81-4812-a763-999869953376" />
 
 
@@ -40,6 +41,7 @@ PriceShield aims to protect consumers from overcharging by providing an easy way
 
 
 - Complaint details page
+
 <img width="534" height="786" alt="Screenshot 2026-02-06 195813" src="https://github.com/user-attachments/assets/2978911b-9597-454e-ab4c-c1b654f085c3" />
 
 
@@ -47,6 +49,7 @@ PriceShield aims to protect consumers from overcharging by providing an easy way
 
 
 - Consumer educational page
+  
   <img width="518" height="843" alt="Screenshot 2026-02-05 175629" src="https://github.com/user-attachments/assets/9d995a59-e4d6-42ee-be19-e77dd2f8384c" />
 
 

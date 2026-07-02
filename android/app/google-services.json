@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "823497301869",
+    "project_id": "priceshield-a2e0f",
+    "storage_bucket": "priceshield-a2e0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:823497301869:android:d0e0b4461df5a399f14464",
+        "android_client_info": {
+          "package_name": "com.example.priceshield_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB22Xar76n3JDiYs-qypxQeMkm_RkNnGPU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

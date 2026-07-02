@@ -1,0 +1,61 @@
+name: priceshield
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.2.2
+  google_fonts: ^6.1.0
+  mobile_scanner: ^5.1.1
+  http: ^1.2.1
+  firebase_core: ^3.6.0
+  cloud_firestore: ^5.4.4
+  google_mlkit_text_recognition: ^0.13.0
+  image_picker: ^1.1.2
+  geolocator: ^13.0.1
+  firebase_auth: ^5.7.0
+  firebase_storage: ^12.4.10
+  intl: ^0.19.0
+  video_player: ^2.8.3
+  geocoding: ^2.1.1
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
+# 🔥 SPLASH SCREEN
+flutter_native_splash:
+  color: "#0D1B2A"
+  image: assets/images/priceshield_logo.png
+  android: true
+  ios: true
+
+  android_12:
+    color: "#0D1B2A"
+    image: assets/images/priceshield_logo.png
+    icon_background_color: "#0D1B2A"
+
+# 🔥 APP ICON
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/priceshield_logo.png
+  adaptive_icon_background: "#57C7A7"
+  adaptive_icon_foreground: assets/images/priceshield_logo.png

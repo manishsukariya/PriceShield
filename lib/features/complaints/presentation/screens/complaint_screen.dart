@@ -7,11 +7,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:priceshield/home_screen.dart';
-import 'package:priceshield/main_navigation_bar.dart';
+import 'package:priceshield/core/services/cloudinary_upload_service.dart';
+import 'package:priceshield/app/navigation/main_navigation.dart';
 import 'package:video_player/video_player.dart';
-
-import 'complaint_details_screen.dart';
 
 class ComplaintScreen extends StatefulWidget {
   final String name;
@@ -56,6 +54,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
   @override
   void dispose() {
+    addressController.dispose();
+    descController.dispose();
     _videoController?.dispose();
     super.dispose();
   }
@@ -222,34 +222,54 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
   /// 📍 Get Location
   Future<void> getLocationAndSet() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Location permission was not granted. Enter the store address manually.'),
+          ));
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      latitude = position.latitude;
+      longitude = position.longitude;
+      final placemarks = await placemarkFromCoordinates(latitude!, longitude!);
+      if (placemarks.isEmpty) return;
+      final place = placemarks.first;
+      if (!mounted) return;
+      setState(() {
+        addressController.text = [
+          place.street,
+          place.subLocality,
+          place.locality,
+          place.administrativeArea,
+          place.postalCode,
+          place.country,
+        ].whereType<String>().where((part) => part.trim().isNotEmpty).join(', ');
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Location could not be fetched. Enter the store address manually.'),
+        ));
+      }
     }
-    if (permission == LocationPermission.deniedForever) return;
-
-    final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    latitude = position.latitude;
-    longitude = position.longitude;
-
-    List<Placemark> placemarks =
-    await placemarkFromCoordinates(latitude!, longitude!);
-    Placemark place = placemarks.first;
-
-    setState(() {
-      addressController.text =
-      "${place.street ?? ""}, "
-          "${place.subLocality ?? ""}, "
-          "${place.locality ?? ""}, "
-          "${place.administrativeArea ?? ""}, "
-          "${place.postalCode ?? ""}, "
-          "${place.country ?? ""}";
-    });
   }
 
   /// 📤 Submit
   Future<void> submitComplaint() async {
+    if (addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Add the store address before submitting the complaint.'),
+      ));
+      return;
+    }
     try {
       setState(() => loading = true);
       final user = FirebaseAuth.instance.currentUser;
@@ -260,6 +280,13 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
             .showSnackBar(const SnackBar(content: Text("Please login first")));
         return;
       }
+
+      final evidence = mediaFile == null
+          ? null
+          : await CloudinaryUploadService.uploadFile(
+              file: mediaFile!,
+              isVideo: isVideo,
+            );
 
       final complaintData = {
         "user_id": user.uid,
@@ -273,6 +300,10 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
         "latitude": latitude,
         "longitude": longitude,
         "description": descController.text,
+        "evidence_url": evidence?.secureUrl,
+        "evidence_public_id": evidence?.publicId,
+        "evidence_resource_type": evidence?.resourceType,
+        "evidence_type": mediaFile == null ? null : (isVideo ? "video" : "image"),
         "purchase_date": selectedDate,
         "status": "pending",
         "created_at": Timestamp.now(),
@@ -299,9 +330,10 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
             (route) => false,
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() => loading = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
+          .showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
     }
   }
 

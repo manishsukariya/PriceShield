@@ -1,9 +1,12 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:priceshield/core/services/cloudinary_upload_service.dart';
+import 'package:priceshield/features/complaints/presentation/screens/complaints_screen.dart';
+import 'package:priceshield/features/profile/presentation/screens/edit_profile_screen.dart';
 
 const _teal = Color(0xFF2BAE9A);
 const _tealLight = Color(0xFFE8F8F5);
@@ -28,52 +31,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int pending = 0;
 
   bool _uploadingImage = false;
-  String? _localImagePath; // locally saved image path
+  String? _photoUrl;
 
   @override
   void initState() {
     super.initState();
     fetchUserData();
     fetchStats();
-    _loadLocalImage();
-  }
-
-  // Device se saved image path load karo
-  Future<void> _loadLocalImage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString('profile_image_${user?.uid}');
-    if (!mounted) return;
-    if (path != null && File(path).existsSync()) {
-      setState(() => _localImagePath = path);
-    }
   }
 
   Future<void> fetchUserData() async {
     if (user == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user!.uid)
-        .get();
-    if (!mounted) return;
-    if (doc.exists) {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user!.uid)
+          .get();
+      if (!mounted || !doc.exists) return;
       setState(() {
         phoneNumber = doc.data()?['mobile'] ?? "";
+        _photoUrl = doc.data()?['photo_url']?.toString();
       });
+    } catch (_) {
+      if (mounted) _showSnack('Profile could not be refreshed.', isError: true);
     }
   }
 
   Future<void> fetchStats() async {
     if (user == null) return;
-    final snapshot = await FirebaseFirestore.instance
-        .collection("complaints")
-        .where("user_id", isEqualTo: user!.uid)
-        .get();
-    if (!mounted) return;
-    setState(() {
-      totalComplaints = snapshot.docs.length;
-      resolved = snapshot.docs.where((d) => d['status'] == "resolved").length;
-      pending = snapshot.docs.where((d) => d['status'] == "pending").length;
-    });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection("complaints")
+          .where("user_id", isEqualTo: user!.uid)
+          .get();
+      if (!mounted) return;
+      setState(() {
+        totalComplaints = snapshot.docs.length;
+        resolved = snapshot.docs.where((d) => d['status'] == "resolved").length;
+        pending = snapshot.docs.where((d) => d['status'] == "pending").length;
+      });
+    } catch (_) {
+      if (mounted) _showSnack('Complaint statistics could not be refreshed.', isError: true);
+    }
   }
 
   // ── PROFILE IMAGE PICK & UPLOAD ──
@@ -96,16 +95,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _uploadingImage = true);
 
     try {
-      // Locally image path SharedPreferences mein save karo
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('profile_image_${user?.uid}', picked.path);
+      final currentUser = user;
+      if (currentUser == null) throw StateError('Please sign in again.');
+
+      final upload = await CloudinaryUploadService.uploadFile(
+        file: File(picked.path),
+        isVideo: false,
+      );
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .set({
+        'uid': currentUser.uid,
+        'photo_url': upload.secureUrl,
+        'photo_public_id': upload.publicId,
+        'photo_resource_type': upload.resourceType,
+      }, SetOptions(merge: true));
 
       if (mounted) {
-        setState(() => _localImagePath = picked.path);
+        setState(() => _photoUrl = upload.secureUrl);
         _showSnack("Profile photo updated!");
       }
     } catch (e) {
-      if (mounted) _showSnack("Failed to save image.", isError: true);
+      if (mounted) {
+        _showSnack(e.toString().replaceFirst('Bad state: ', ''), isError: true);
+      }
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
@@ -196,6 +210,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _openComplaints() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ComplaintsScreen()),
+    );
+  }
+
+  void _showSupport() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Help & Support'),
+        content: const Text(
+          'To report a price issue, scan the barcode, enter the printed MRP and charged price, then attach proof and file a complaint. You can track submitted complaints from Complaint History.',
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Got it'))],
+      ),
+    );
+  }
+
+  void _showPrivacy() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Privacy'),
+        content: const Text(
+          'PriceShield stores your account details, scans and complaints in your account. Photos and videos you attach are stored securely in Cloudinary and their links are saved with the complaint.',
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
   void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -238,12 +285,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 10),
                   _buildCard([
                     _tile(Icons.person_outline_rounded, "Edit Profile",
-                        onTap: () {}),
+                        onTap: () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+                      fetchUserData();
+                    }),
                     _tile(
                       Icons.phone_outlined,
                       phoneNumber.isEmpty ? "Add Phone Number" : phoneNumber,
                       subtitle: phoneNumber.isEmpty ? null : "Mobile",
-                      onTap: () {},
+                      onTap: () async {
+                        await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+                        fetchUserData();
+                      },
                     ),
                   ]),
                   const SizedBox(height: 20),
@@ -251,18 +304,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 10),
                   _buildCard([
                     _tile(Icons.history_rounded, "Complaint History",
-                        onTap: () {}),
+                        onTap: () => _openComplaints()),
                     _tile(Icons.track_changes_rounded, "Track Status",
-                        onTap: () {}),
+                        onTap: () => _openComplaints()),
                   ]),
                   const SizedBox(height: 20),
                   _sectionLabel("More"),
                   const SizedBox(height: 10),
                   _buildCard([
                     _tile(Icons.help_outline_rounded, "Help & Support",
-                        onTap: () {}),
+                        onTap: _showSupport),
                     _tile(Icons.privacy_tip_outlined, "Privacy Policy",
-                        onTap: () {}),
+                        onTap: _showPrivacy),
                   ]),
                   const SizedBox(height: 28),
                   _buildLogoutButton(),
@@ -312,11 +365,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: CircleAvatar(
                               radius: 44,
                               backgroundColor: _tealLight,
-                              backgroundImage: _localImagePath != null
-                                  ? FileImage(File(_localImagePath!))
-                                  : (user?.photoURL != null
-                                  ? NetworkImage(user!.photoURL!)
-                                  : null) as ImageProvider?,
+                              backgroundImage: (_photoUrl ?? user?.photoURL) != null
+                                  ? NetworkImage(_photoUrl ?? user!.photoURL!)
+                                  : null,
                               child: _uploadingImage
                               // uploading indicator
                                   ? const SizedBox(
@@ -327,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   strokeWidth: 2.5,
                                 ),
                               )
-                                  : (_localImagePath == null && user?.photoURL == null)
+                                  : (_photoUrl == null && user?.photoURL == null)
                                   ? Text(
                                 _getInitials(),
                                 style: const TextStyle(

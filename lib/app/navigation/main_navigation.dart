@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:priceshield/complaints_navigation_bar.dart';
-import 'home_screen.dart';
-import 'ScannerScreen.dart';
-import 'complaint_details_screen.dart';
-import 'profile_screen.dart';
+import 'package:priceshield/features/complaints/presentation/screens/complaints_screen.dart';
+import 'package:priceshield/features/home/presentation/screens/home_screen.dart';
+import 'package:priceshield/features/scanner/presentation/screens/scanner_screen.dart';
+import 'package:priceshield/features/profile/presentation/screens/profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -17,9 +16,8 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _pages = [
     const HomeScreen(),
-    const nav_complaint_show(),
+    const ComplaintsScreen(),
     const ProfileScreen(),
-    const Scaffold(),
   ];
 
   void _openScanner() {

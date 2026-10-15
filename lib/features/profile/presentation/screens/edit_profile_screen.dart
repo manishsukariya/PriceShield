@@ -1,9 +1,10 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 
 const _teal = Color(0xFF2BAE9A);
 const _tealLight = Color(0xFFE8F8F5);
@@ -26,6 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final ImagePicker _picker = ImagePicker();
 
   late TextEditingController _nameController;
+  final _mobileController = TextEditingController();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -35,11 +37,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _obscureConfirm = true;
   bool _isSaving = false;
 
-  // ── LOCAL PHOTO ──
-  String? _photoPath;
+  String? _photoUrl;
+  String _savedMobile = '';
 
-  bool get _nameChanged =>
-      _nameController.text.trim() != (user?.displayName ?? "");
+  bool get _profileChanged =>
+      _nameController.text.trim() != (user?.displayName ?? "") ||
+      _mobileController.text.trim() != _savedMobile;
 
   @override
   void initState() {
@@ -51,18 +54,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _mobileController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // ── LOAD saved photo path from SharedPreferences ──
+  // ── LOAD Cloudinary photo URL ──
   Future<void> _loadPhoto() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString("profile_photo_path");
+    if (user == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .get();
     if (!mounted) return;
-    setState(() => _photoPath = path);
+    final data = doc.data();
+    setState(() {
+      _photoUrl = data?['photo_url']?.toString();
+      _savedMobile = data?['mobile']?.toString() ?? '';
+      _mobileController.text = _savedMobile;
+    });
   }
 
   // ── PICK photo from gallery ──
@@ -70,30 +82,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 75,
+      maxWidth: 512,
     );
     if (image == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("profile_photo_path", image.path);
-
-    if (!mounted) return;
-    setState(() => _photoPath = image.path);
-    _showSnack("Profile photo updated!");
+    final currentUser = user;
+    if (currentUser == null) return;
+    setState(() => _isSaving = true);
+    try {
+      final upload = await CloudinaryUploadService.uploadFile(
+        file: File(image.path),
+        isVideo: false,
+      );
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .set({
+        'uid': currentUser.uid,
+        'photo_url': upload.secureUrl,
+        'photo_public_id': upload.publicId,
+        'photo_resource_type': upload.resourceType,
+      }, SetOptions(merge: true));
+      if (!mounted) return;
+      setState(() => _photoUrl = upload.secureUrl);
+      _showSnack("Profile photo updated!");
+    } catch (e) {
+      if (mounted) {
+        _showSnack(e.toString().replaceFirst('Bad state: ', ''), isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   // ── REMOVE photo ──
   Future<void> _removePhoto() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("profile_photo_path");
-
-    if (!mounted) return;
-    setState(() => _photoPath = null);
-    _showSnack("Profile photo removed.");
+    final currentUser = user;
+    if (currentUser == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .set({
+        'uid': currentUser.uid,
+        'photo_url': FieldValue.delete(),
+        'photo_public_id': FieldValue.delete(),
+        'photo_resource_type': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      if (!mounted) return;
+      setState(() => _photoUrl = null);
+      _showSnack("Profile photo removed.");
+    } catch (e) {
+      if (mounted) {
+        _showSnack("Could not remove profile photo.", isError: true);
+      }
+    }
   }
 
   // ── TAP avatar → show options if photo exists, else pick ──
   Future<void> _onAvatarTap() async {
-    if (_photoPath != null) {
+    if (_photoUrl != null) {
       await showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
@@ -203,20 +251,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // ── SAVE NAME ──
-  Future<void> _saveName() async {
+  // ── SAVE PROFILE ──
+  Future<void> _saveProfile() async {
     final newName = _nameController.text.trim();
+    final mobile = _mobileController.text.trim();
     if (newName.isEmpty) return;
+    if (mobile.isNotEmpty && !RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
+      _showSnack('Enter a valid 10-digit mobile number.', isError: true);
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
-      await user!.updateDisplayName(newName);
+      if (newName != user!.displayName) await user!.updateDisplayName(newName);
       await FirebaseFirestore.instance
           .collection("users")
           .doc(user!.uid)
-          .set({"name": newName}, SetOptions(merge: true));
+          .set({"name": newName, "mobile": mobile}, SetOptions(merge: true));
       await user!.reload();
-      _showSnack("Name updated successfully!");
+      if (mounted) setState(() => _savedMobile = mobile);
+      _showSnack("Profile updated successfully!");
     } catch (e) {
       _showSnack("Failed to update name.", isError: true);
     } finally {
@@ -347,13 +401,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: CircleAvatar(
                     radius: 52,
                     backgroundColor: _tealLight,
-                    // Priority: local file > Firebase photoURL > initials
-                    backgroundImage: _photoPath != null
-                        ? FileImage(File(_photoPath!))
+                    // Priority: Cloudinary photo > Firebase Auth photo > initials
+                    backgroundImage: _photoUrl != null
+                        ? NetworkImage(_photoUrl!)
                         : (user?.photoURL != null
                         ? NetworkImage(user!.photoURL!) as ImageProvider
                         : null),
-                    child: (_photoPath == null && user?.photoURL == null)
+                    child: (_photoUrl == null && user?.photoURL == null)
                         ? Text(
                       _getInitials(),
                       style: const TextStyle(
@@ -375,12 +429,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     height: 32,
                     decoration: BoxDecoration(
                       // Red badge if photo exists (signals "editable/removable")
-                      color: _photoPath != null ? Colors.redAccent : _teal,
+                      color: _photoUrl != null ? Colors.redAccent : _teal,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2.5),
                     ),
                     child: Icon(
-                      _photoPath != null
+                      _photoUrl != null
                           ? Icons.edit_outlined
                           : Icons.camera_alt_outlined,
                       color: Colors.white,
@@ -399,7 +453,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            _photoPath != null
+            _photoUrl != null
                 ? "Tap to change or remove photo"
                 : "Tap avatar to add a profile photo",
             style: const TextStyle(fontSize: 12, color: _textGrey),
@@ -418,7 +472,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Icons.email_outlined, "Email Address", user?.email ?? "—"),
           const Divider(height: 1, indent: 60, color: Color(0xFFF0F0F0)),
           _readOnlyTile(
-              Icons.phone_outlined, "Mobile Number", "Not editable here"),
+              Icons.phone_outlined, "Mobile Number", _mobileController.text.isEmpty ? 'Not added' : _mobileController.text),
         ],
       ),
     );
@@ -487,8 +541,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
+            _inputField(
+              controller: _mobileController,
+              label: "Mobile Number",
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                final mobile = value?.trim() ?? '';
+                if (mobile.isNotEmpty && !RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
+                  return 'Enter a valid 10-digit number';
+                }
+                return null;
+              },
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
             _actionButton(
-                "Save Name", _isSaving || !_nameChanged ? null : _saveName),
+                "Save Profile", _isSaving || !_profileChanged ? null : _saveProfile),
           ],
         ),
       ),
@@ -610,6 +679,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String label,
     required IconData icon,
     bool obscure = false,
+    TextInputType? keyboardType,
     VoidCallback? toggleObscure,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
@@ -617,6 +687,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
+      keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
       style: const TextStyle(

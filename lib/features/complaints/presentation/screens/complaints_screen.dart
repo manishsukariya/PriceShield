@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'complaint_details_screen.dart';
+import 'package:priceshield/features/complaints/presentation/screens/complaint_details_screen.dart';
 
-class nav_complaint_show extends StatefulWidget {
-  const nav_complaint_show({super.key});
+class ComplaintsScreen extends StatefulWidget {
+  const ComplaintsScreen({super.key});
 
   @override
-  State<nav_complaint_show> createState() => _nav_complaint_showState();
+  State<ComplaintsScreen> createState() => _ComplaintsScreenState();
 }
 
-class _nav_complaint_showState extends State<nav_complaint_show> {
+class _ComplaintsScreenState extends State<ComplaintsScreen> {
   final user = FirebaseAuth.instance.currentUser;
   String _selectedFilter = "All";
-  final List<String> _filters = ["All", "Pending", "Resolved"];
+  final List<String> _filters = ["All", "Pending", "Resolved", "Rejected"];
 
   // ── Colours (matches app theme) ──────────────────────────────────────────
   static const _teal      = Color(0xFF57C7A7);
@@ -74,7 +74,6 @@ class _nav_complaint_showState extends State<nav_complaint_show> {
         stream: FirebaseFirestore.instance
             .collection('complaints')
             .where('user_id', isEqualTo: user!.uid)
-            .orderBy('created_at', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -84,16 +83,27 @@ class _nav_complaint_showState extends State<nav_complaint_show> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "Something went wrong\n${snapshot.error}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Complaints could not be loaded. Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             );
           }
 
-          final allDocs = snapshot.data?.docs ?? [];
+          final allDocs = snapshot.data?.docs.toList() ?? [];
+          allDocs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aDate = aData['created_at'] as Timestamp?;
+            final bDate = bData['created_at'] as Timestamp?;
+            return (bDate?.millisecondsSinceEpoch ?? 0)
+                .compareTo(aDate?.millisecondsSinceEpoch ?? 0);
+          });
 
           // ── Count stats ──
           final total    = allDocs.length;

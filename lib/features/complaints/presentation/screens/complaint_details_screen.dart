@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:video_player/video_player.dart';
 
 class ComplaintDetailsScreen extends StatefulWidget {
   final String complaintDocId;
@@ -61,7 +62,7 @@ class _ComplaintDetailsScreenState
         }
 
         /// 🔐 Security check (only own complaint)
-        if (data["user_email"] != user!.email)
+        if (data["user_id"] != user!.uid)
         {
           return const Scaffold(
             body: Center(child: Text("Unauthorized Access")),
@@ -99,8 +100,21 @@ class _ComplaintDetailsScreenState
             : "No date";
 
         String status = (data["status"] ?? "pending").toString();
+        final evidenceUrl = data['evidence_url']?.toString();
+        final evidenceType = data['evidence_type']?.toString();
 
         String complaintId = widget.complaintDocId;
+
+        final statusColor = status.toLowerCase() == 'resolved'
+            ? Colors.green
+            : status.toLowerCase() == 'rejected'
+                ? Colors.red
+                : Colors.orange;
+        final statusIcon = status.toLowerCase() == 'resolved'
+            ? Icons.check_circle_outline
+            : status.toLowerCase() == 'rejected'
+                ? Icons.cancel_outlined
+                : Icons.access_time;
 
         return Scaffold(
           backgroundColor: const Color(0xffF6F7F9),
@@ -132,7 +146,7 @@ class _ComplaintDetailsScreenState
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xffFFF1DD),
+                    color: statusColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -144,9 +158,9 @@ class _ComplaintDetailsScreenState
                           color: Colors.orange.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(25),
                         ),
-                        child: const Icon(
-                          Icons.access_time,
-                          color: Colors.orange,
+                        child: Icon(
+                          statusIcon,
+                          color: statusColor,
                           size: 28,
                         ),
                       ),
@@ -157,9 +171,10 @@ class _ComplaintDetailsScreenState
                           children: [
                             Text(
                               status.toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: statusColor,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -259,6 +274,14 @@ class _ComplaintDetailsScreenState
                   ),
                 ),
 
+                if (evidenceUrl != null && evidenceUrl.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _EvidencePreview(
+                    url: evidenceUrl,
+                    isVideo: evidenceType == 'video',
+                  ),
+                ],
+
                 const SizedBox(height: 20),
 
                 /// WITHDRAW BUTTON
@@ -330,6 +353,104 @@ class _ComplaintDetailsScreenState
       const SnackBar(
         content: Text("Complaint withdrawn successfully"),
         backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+class _EvidencePreview extends StatefulWidget {
+  const _EvidencePreview({required this.url, required this.isVideo});
+
+  final String url;
+  final bool isVideo;
+
+  @override
+  State<_EvidencePreview> createState() => _EvidencePreviewState();
+}
+
+class _EvidencePreviewState extends State<_EvidencePreview> {
+  VideoPlayerController? _controller;
+  bool _videoFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isVideo) _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => _videoFailed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Complaint Evidence',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (!widget.isVideo)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                widget.url,
+                width: double.infinity,
+                height: 220,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Text(
+                  'Could not load the evidence image.',
+                ),
+              ),
+            )
+          else if (_videoFailed)
+            const Text('Could not load the evidence video.')
+          else if (controller == null || !controller.value.isInitialized)
+            const Center(child: CircularProgressIndicator())
+          else
+            AspectRatio(
+              aspectRatio: controller.value.aspectRatio,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  VideoPlayer(controller),
+                  IconButton.filled(
+                    onPressed: () => setState(() {
+                      controller.value.isPlaying
+                          ? controller.pause()
+                          : controller.play();
+                    }),
+                    icon: Icon(
+                      controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

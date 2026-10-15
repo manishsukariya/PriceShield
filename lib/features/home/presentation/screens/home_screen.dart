@@ -1,13 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:priceshield/profile_screen.dart';
-import 'recent_scan_datails.dart';
-import 'ScannerScreen.dart';
-import 'education_screen.dart';
-import 'complaint_details_screen.dart';
+import 'package:priceshield/features/profile/presentation/screens/profile_screen.dart';
+import 'package:priceshield/features/scanner/presentation/screens/scan_details_screen.dart';
+import 'package:priceshield/features/scanner/presentation/screens/scanner_screen.dart';
+import 'package:priceshield/features/education/presentation/screens/education_screen.dart';
+import 'package:priceshield/features/complaints/presentation/screens/complaint_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,13 +16,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String userName = "";
-  String? _localImagePath;
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
-    _loadLocalImage();
   }
 
   Future<void> _loadUserName() async {
@@ -38,22 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted && userDoc.exists) {
           setState(() {
             userName = userDoc.data()?['name'] ?? "";
+            _profileImageUrl = userDoc.data()?['photo_url']?.toString();
           });
         }
       }
     } catch (e) {
       print("Error loading user name: $e");
-    }
-  }
-
-  Future<void> _loadLocalImage() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString('profile_image_${user.uid}');
-    if (!mounted) return;
-    if (path != null && File(path).existsSync()) {
-      setState(() => _localImagePath = path);
     }
   }
 
@@ -139,14 +126,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 );
-                _loadLocalImage();
+                _loadUserName();
               },
               child: CircleAvatar(
                 backgroundColor: const Color(0xff57C7A7),
-                backgroundImage: _localImagePath != null
-                    ? FileImage(File(_localImagePath!))
+                backgroundImage: _profileImageUrl != null
+                    ? NetworkImage(_profileImageUrl!)
                     : null,
-                child: _localImagePath == null
+                child: _profileImageUrl == null
                     ? Text(
                   userName.isEmpty ? "U" : userName[0].toUpperCase(),
                   style: const TextStyle(color: Colors.white),
@@ -267,61 +254,49 @@ class _HomeScreenState extends State<HomeScreen> {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('complaints')
-                    .where('user_email',
-                    isEqualTo:
-                    FirebaseAuth.instance.currentUser?.email)
-                    .orderBy('purchase_date', descending: true)
-                    .limit(1)
+                    .where('user_id', isEqualTo: uid)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  if (snapshot.hasError) {
+                    return _dataErrorCard('Your latest complaint could not be loaded.');
+                  }
+                  final complaints = snapshot.data?.docs.toList() ?? [];
+                  complaints.sort((a, b) {
+                    final aData = a.data() as Map<String, dynamic>;
+                    final bData = b.data() as Map<String, dynamic>;
+                    final aDate = (aData['created_at'] ?? aData['purchase_date']) as Timestamp?;
+                    final bDate = (bData['created_at'] ?? bData['purchase_date']) as Timestamp?;
+                    return (bDate?.millisecondsSinceEpoch ?? 0)
+                        .compareTo(aDate?.millisecondsSinceEpoch ?? 0);
+                  });
+                  if (complaints.isEmpty) {
                     return const Text("No complaints yet");
                   }
-                  return _complaintCard(context, snapshot.data!.docs.first);
+                  return _complaintCard(context, complaints.first);
                 },
               ),
 
               const SizedBox(height: 16),
 
-              // ── ACHIEVEMENT ──
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xffE3F6F1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 40,
-                      width: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.emoji_events_outlined,
-                          color: Colors.teal),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("You helped detect 3 overcharges",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15)),
-                          SizedBox(height: 4),
-                          Text("Keep protecting consumers!",
-                              style:
-                              TextStyle(fontSize: 13, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('scans')
+                    .where('user_id', isEqualTo: uid)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _dataErrorCard('Your scan summary could not be loaded.');
+                  }
+                  final count = snapshot.data?.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return data['status'] == 'overcharged';
+                      }).length ??
+                      0;
+                  return _achievementCard(count);
+                },
               ),
 
               const SizedBox(height: 20),
@@ -384,9 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('scans')
-                      .where('user_email',
-                      isEqualTo:
-                      FirebaseAuth.instance.currentUser?.email)
+                      .where('user_id', isEqualTo: uid)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -394,18 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
 
                     if (snapshot.hasError) {
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          "Error: ${snapshot.error}",
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 12),
-                        ),
-                      );
+                      return _dataErrorCard('Recent scans could not be loaded. Check your connection and try again.');
                     }
 
                     final allDocs = snapshot.data?.docs ?? [];
@@ -468,7 +430,63 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── SCAN TILE — ab tappable hai ──
+  Widget _achievementCard(int overchargeCount) {
+    final label = overchargeCount == 1 ? '1 overcharge' : '$overchargeCount overcharges';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xffE3F6F1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: Colors.teal.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.emoji_events_outlined, color: Colors.teal),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You helped detect $label',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Keep protecting consumers!',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dataErrorCard(String message) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_outlined, color: Colors.redAccent),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.redAccent))),
+          ],
+        ),
+      );
+
   Widget _scanTile(BuildContext context, Map<String, dynamic> data) {
     final productName = data['product_name'] ?? 'Unknown Product';
     final chargedPrice = (data['charged_price'] ?? 0).toDouble();

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'wavecliper.dart';
+import 'package:priceshield/core/widgets/wave_clipper.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,6 +20,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 
   bool loading = false;
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    mobilenumbarController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,9 +157,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   /// 🔥 REGISTER LOGIC
   Future<void> registerUser() async {
     if (nameController.text.isEmpty ||
+        mobilenumbarController.text.isEmpty ||
         emailController.text.isEmpty ||
         passwordController.text.isEmpty) {
       _show("All fields are required");
+      return;
+    }
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(mobilenumbarController.text.trim())) {
+      _show('Enter a valid 10-digit mobile number');
       return;
     }
 
@@ -178,9 +192,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pushReplacementNamed(context, '/signin');
     } on FirebaseAuthException catch (e) {
       _show(e.message ?? "Registration failed");
+    } catch (_) {
+      _show('Account could not be created. Check your connection and try again.');
     }
 
-    setState(() => loading = false);
+    if (mounted) setState(() => loading = false);
   }
 
   void _show(String msg) {

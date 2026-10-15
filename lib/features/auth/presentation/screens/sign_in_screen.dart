@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'wavecliper.dart';
+import 'package:priceshield/core/widgets/wave_clipper.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -15,6 +15,13 @@ class _SignInScreenState extends State<SignInScreen> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,9 +172,11 @@ class _SignInScreenState extends State<SignInScreen> {
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
       _show(e.message ?? "Login failed");
+    } catch (_) {
+      _show('Login could not be completed. Check your connection and try again.');
     }
 
-    setState(() => loading = false);
+    if (mounted) setState(() => loading = false);
   }
 
   void _show(String msg) {

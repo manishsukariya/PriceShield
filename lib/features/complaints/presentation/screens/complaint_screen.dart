@@ -1,13 +1,12 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/app/navigation/main_navigation.dart';
 import 'package:video_player/video_player.dart';
 
@@ -30,6 +29,7 @@ class ComplaintScreen extends StatefulWidget {
 }
 
 class _ComplaintScreenState extends State<ComplaintScreen> {
+  final String _submissionId = 'complaint-${DateTime.now().microsecondsSinceEpoch}';
   final TextEditingController addressController = TextEditingController();
   final TextEditingController descController = TextEditingController();
 
@@ -49,7 +49,6 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   @override
   void initState() {
     super.initState();
-    _ensureUserLoggedIn();
   }
 
   @override
@@ -58,12 +57,6 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     descController.dispose();
     _videoController?.dispose();
     super.dispose();
-  }
-
-  Future<void> _ensureUserLoggedIn() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      await FirebaseAuth.instance.signInAnonymously();
-    }
   }
 
   // ── MEDIA PICKER: bottom sheet with 3 options ──
@@ -272,15 +265,6 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     }
     try {
       setState(() => loading = true);
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-        setState(() => loading = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Please login first")));
-        return;
-      }
-
       final evidence = mediaFile == null
           ? null
           : await CloudinaryUploadService.uploadFile(
@@ -288,37 +272,38 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
               isVideo: isVideo,
             );
 
-      final complaintData = {
-        "user_id": user.uid,
-        "user_email": user.email,
-        "product_name": widget.name,
-        "barcode": widget.barcode,
-        "mrp": widget.mrp,
-        "charged_price": widget.charged,
-        "extra": extra,
-        "address": addressController.text,
-        "latitude": latitude,
-        "longitude": longitude,
-        "description": descController.text,
-        "evidence_url": evidence?.secureUrl,
-        "evidence_public_id": evidence?.publicId,
-        "evidence_resource_type": evidence?.resourceType,
-        "evidence_type": mediaFile == null ? null : (isVideo ? "video" : "image"),
-        "purchase_date": selectedDate,
-        "status": "pending",
-        "created_at": Timestamp.now(),
-      };
-
-      await FirebaseFirestore.instance
-          .collection("complaints")
-          .add(complaintData);
+      if (!priceShieldApi.isConfigured) {
+        throw const PriceShieldApiException('The PriceShield backend is not configured.');
+      }
+      await priceShieldApi.createComplaint(
+            barcode: widget.barcode,
+            productName: widget.name,
+            mrp: widget.mrp,
+            chargedPrice: widget.charged,
+            address: addressController.text.trim(),
+            latitude: latitude,
+            longitude: longitude,
+            description: descController.text,
+            purchaseDate: selectedDate,
+            evidence: evidence == null
+                ? null
+                : [
+                    {
+                      'url': evidence.secureUrl,
+                      'publicId': evidence.publicId,
+                      'resourceType': evidence.resourceType,
+                      'mediaType': isVideo ? 'video' : 'image',
+                    },
+                  ],
+            clientRequestId: _submissionId,
+          );
 
       setState(() => loading = false);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Complaint Submitted Successfully"),
+        SnackBar(
+          content: const Text('Complaint Submitted Successfully'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),

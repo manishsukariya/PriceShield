@@ -44,7 +44,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       body: MobileScanner(
         fit: BoxFit.cover,
         onDetect: _onDetect,
-        errorBuilder: (_, error) => Center(
+        errorBuilder: (_, error, __) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(

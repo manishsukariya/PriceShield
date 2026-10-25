@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
+import 'package:priceshield/core/services/auth_service.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
+import 'package:priceshield/features/auth/presentation/screens/verify_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -171,27 +172,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => loading = true);
 
     try {
-      UserCredential user =
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final registration = await authService.register(
+        displayName: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
+        mobile: mobilenumbarController.text.trim(),
       );
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.user!.uid)
-          .set({
-        'uid': user.user!.uid,
-        'name': nameController.text.trim(),
-        'email': emailController.text.trim(),
-        'mobile': mobilenumbarController.text.trim(),
-        'createdAt': Timestamp.now(),
-      });
-
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/signin');
-    } on FirebaseAuthException catch (e) {
-      _show(e.message ?? "Registration failed");
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => VerifyOtpScreen(
+        email: emailController.text.trim(),
+        resendAfterSeconds: int.tryParse('${registration['resendAfterSeconds']}') ?? 60,
+        initialOtp: registration['developmentOtp']?.toString(),
+      )));
+    } on PriceShieldApiException catch (e) {
+      _show(e.message);
     } catch (_) {
       _show('Account could not be created. Check your connection and try again.');
     }

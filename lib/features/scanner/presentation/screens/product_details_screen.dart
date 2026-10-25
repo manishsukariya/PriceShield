@@ -1,5 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:priceshield/core/services/cloudinary_upload_service.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scan_result_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
@@ -20,6 +25,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _loading = true;
   bool _isKnownProduct = false;
   String? _loadError;
+  File? _frontImage;
+  File? _backImage;
+  String _ocrText = '';
+  bool _readingPackage = false;
+  bool _submittingProduct = false;
 
   @override
   void initState() {
@@ -37,17 +47,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _fetchProduct() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('products')
-          .doc(widget.barcode)
-          .get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        _nameController.text = data['name']?.toString() ?? '';
-        final mrp = data['mrp'];
-        _mrpController.text = mrp is num ? mrp.toInt().toString() : '';
-        _isKnownProduct = true;
-      }
+      final product = await priceShieldApi.getProduct(widget.barcode);
+      _nameController.text = product['name']?.toString() ?? '';
+      final mrp = num.tryParse(product['mrp']?.toString() ?? '');
+      _mrpController.text = mrp?.toStringAsFixed(0) ?? '';
+      _isKnownProduct =
+          _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
+    } on PriceShieldApiException {
+      _loadError = 'Product details could not be fetched. You can enter them manually.';
     } catch (_) {
       _loadError = 'Product details could not be fetched. You can enter them manually.';
     } finally {
@@ -70,6 +77,55 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickPackageImage({required bool isFront}) async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (picked == null) return;
+    final image = File(picked.path);
+    setState(() {
+      if (isFront) _frontImage = image; else _backImage = image;
+    });
+    await _readPackageText(image);
+  }
+
+  Future<void> _readPackageText(File image) async {
+    setState(() => _readingPackage = true);
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final result = await recognizer.processImage(InputImage.fromFile(image));
+      final text = result.text.trim();
+      if (text.isNotEmpty) {
+        _ocrText = [_ocrText, text].where((item) => item.isNotEmpty).join('\n');
+        final match = RegExp(r'(?:MRP|Rs\\.?|₹)\\s*[:\\-]?\\s*(\\d+(?:\\.\\d{1,2})?)', caseSensitive: false).firstMatch(_ocrText);
+        if (_mrpController.text.trim().isEmpty && match != null) _mrpController.text = match.group(1)!;
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Text could not be read. Enter the package details manually.')));
+    } finally {
+      await recognizer.close();
+      if (mounted) setState(() => _readingPackage = false);
+    }
+  }
+
+  Future<void> _submitForReview() async {
+    if (_frontImage == null && _backImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a front or back package photo for review.')));
+      return;
+    }
+    setState(() => _submittingProduct = true);
+    try {
+      final frontUpload = _frontImage == null ? null : await CloudinaryUploadService.uploadFile(file: _frontImage!, isVideo: false);
+      final backUpload = _backImage == null ? null : await CloudinaryUploadService.uploadFile(file: _backImage!, isVideo: false);
+      final parsedMrp = num.tryParse(_mrpController.text.trim());
+      if (!priceShieldApi.isConfigured) throw const PriceShieldApiException('The PriceShield backend is not configured.');
+      await priceShieldApi.createProductSubmission(barcode: widget.barcode, productName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(), printedMrp: parsedMrp, ocrText: _ocrText, frontImageUrl: frontUpload?.secureUrl, backImageUrl: backUpload?.secureUrl);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product details submitted for review. The MRP remains unverified.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _submittingProduct = false);
+    }
   }
 
   InputDecoration _decoration(String label, {String? prefix}) => InputDecoration(
@@ -159,6 +215,47 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   return amount == null || amount <= 0 ? 'Enter the price charged' : null;
                 },
               ),
+              if (manualEntry) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: const Color(0xffF1F4FF), borderRadius: BorderRadius.circular(14)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Help add this product', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      const Text('Capture the package front and back. Review any OCR result against the printed label.'),
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        OutlinedButton.icon(
+                          onPressed: _readingPackage ? null : () => _pickPackageImage(isFront: true),
+                          icon: Icon(_frontImage == null ? Icons.camera_alt_outlined : Icons.check_circle_outline),
+                          label: Text(_frontImage == null ? 'Package front' : 'Front added'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _readingPackage ? null : () => _pickPackageImage(isFront: false),
+                          icon: Icon(_backImage == null ? Icons.check_box_outline_blank : Icons.check_circle_outline),
+                          label: Text(_backImage == null ? 'Package back' : 'Back added'),
+                        ),
+                      ]),
+                      if (_readingPackage) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator()),
+                      if (_ocrText.isNotEmpty) const Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: Text('OCR extracted text is unverified. Correct the fields above before continuing.'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: _submittingProduct ? null : _submitForReview,
+                        icon: _submittingProduct
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.upload_file_outlined),
+                        label: const Text('Submit for catalog review'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               SizedBox(
                 height: 52,

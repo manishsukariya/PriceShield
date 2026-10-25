@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:priceshield/core/services/auth_service.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -163,15 +164,15 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => loading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await authService.login(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
-    } on FirebaseAuthException catch (e) {
-      _show(e.message ?? "Login failed");
+    } on PriceShieldApiException catch (e) {
+      _show(e.message);
     } catch (_) {
       _show('Login could not be completed. Check your connection and try again.');
     }

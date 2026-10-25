@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ScanStatus {
+  OVERCHARGED
+  WITHIN_MRP
+}
+
+enum ComplaintStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum EvidenceMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum ProductSubmissionStatus {
+  PENDING
+  REVIEWED
+  REJECTED
+}
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  passwordHash String     @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  displayName String?     @map("display_name")
+  mobile      String?
+  photoUrl    String?     @map("photo_url")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  scans       Scan[]
+  complaints  Complaint[]
+  productSubmissions ProductSubmission[]
+
+  @@map("users")
+}
+
+model PendingRegistration {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  passwordHash        String   @map("password_hash")
+  displayName         String?  @map("display_name")
+  mobile              String?
+  otpHash             String   @map("otp_hash")
+  otpExpiresAt        DateTime @map("otp_expires_at")
+  failedAttempts      Int      @default(0) @map("failed_attempts")
+  sendCount           Int      @default(0) @map("send_count")
+  resendAvailableAt   DateTime @map("resend_available_at")
+  lastSentAt          DateTime? @map("last_sent_at")
+  lastDeliveryFailedAt DateTime? @map("last_delivery_failed_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([otpExpiresAt])
+  @@map("pending_registrations")
+}
+
+model Product {
+  id        String      @id @default(cuid())
+  barcode   String      @unique
+  name      String
+  mrp       Decimal     @db.Decimal(12, 2)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  scans     Scan[]
+  complaints Complaint[]
+
+  @@map("products")
+}
+
+model Scan {
+  id           String     @id @default(cuid())
+  userId       String     @map("user_id")
+  productId    String?    @map("product_id")
+  productName  String     @map("product_name")
+  barcode      String
+  mrp          Decimal    @db.Decimal(12, 2)
+  chargedPrice Decimal    @map("charged_price") @db.Decimal(12, 2)
+  overcharge   Decimal    @db.Decimal(12, 2)
+  status       ScanStatus
+  clientRequestId String? @map("client_request_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([barcode])
+  @@unique([userId, clientRequestId])
+  @@map("scans")
+}
+
+model Complaint {
+  id           String          @id @default(cuid())
+  userId       String          @map("user_id")
+  productId    String?         @map("product_id")
+  productName  String          @map("product_name")
+  barcode      String
+  mrp          Decimal         @db.Decimal(12, 2)
+  chargedPrice Decimal         @map("charged_price") @db.Decimal(12, 2)
+  overcharge   Decimal         @db.Decimal(12, 2)
+  address      String
+  latitude     Decimal?        @db.Decimal(9, 6)
+  longitude    Decimal?        @db.Decimal(9, 6)
+  description  String?
+  purchaseDate DateTime?       @map("purchase_date")
+  status       ComplaintStatus @default(PENDING)
+  withdrawnAt  DateTime?       @map("withdrawn_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  clientRequestId String?       @map("client_request_id")
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  evidence     Evidence[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@unique([userId, clientRequestId])
+  @@map("complaints")
+}
+
+model ProductSubmission {
+  id            String                  @id @default(cuid())
+  userId        String                  @map("user_id")
+  barcode       String
+  productName   String?                 @map("product_name")
+  printedMrp    Decimal?                @map("printed_mrp") @db.Decimal(12, 2)
+  ocrText       String?                 @map("ocr_text")
+  frontImageUrl String?                 @map("front_image_url")
+  backImageUrl  String?                 @map("back_image_url")
+  status        ProductSubmissionStatus @default(PENDING)
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([barcode, status])
+  @@map("product_submissions")
+}
+
+model Evidence {
+  id          String            @id @default(cuid())
+  complaintId String            @map("complaint_id")
+  url         String
+  publicId    String?           @map("public_id")
+  resourceType String?          @map("resource_type")
+  mediaType   EvidenceMediaType @map("media_type")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  complaint   Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+  @@map("evidence")
+}

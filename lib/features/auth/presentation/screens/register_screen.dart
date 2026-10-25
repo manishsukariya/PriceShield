@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
 import 'package:priceshield/core/services/auth_service.dart';
-import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/auth/presentation/screens/verify_otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -17,8 +16,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final mobilenumbarController = TextEditingController();
-
-
 
   bool loading = false;
 
@@ -49,8 +46,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.person_add_alt_1,
-                        size: 60, color: Colors.white),
+                    const Icon(
+                      Icons.person_add_alt_1,
+                      size: 60,
+                      color: Colors.white,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       "Create Account",
@@ -79,7 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: Colors.black12,
                       blurRadius: 20,
                       offset: const Offset(0, 10),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
@@ -89,19 +89,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Text(
                         "Register",
                         style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
                     _field(nameController, "Full Name", Icons.person),
                     const SizedBox(height: 14),
-                    _field(mobilenumbarController, "Mobile Number", Icons.phone),
+                    _field(
+                      mobilenumbarController,
+                      "Mobile Number",
+                      Icons.phone,
+                    ),
                     const SizedBox(height: 14),
                     _field(emailController, "Email address", Icons.email),
                     const SizedBox(height: 14),
-                    _field(passwordController, "Password", Icons.lock,
-                        isPassword: true),
+                    _field(
+                      passwordController,
+                      "Password",
+                      Icons.lock,
+                      isPassword: true,
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -118,12 +128,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         child: loading
                             ? const CircularProgressIndicator(
-                            color: Colors.white)
+                                color: Colors.white,
+                              )
                             : const Text(
-                          "Register",
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 16),
-                        ),
+                                "Register",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
                       ),
                     ),
 
@@ -134,21 +147,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text("Already have an account? "),
                         GestureDetector(
-                          onTap: () =>
-                              Navigator.pushReplacementNamed(context, '/signin'),
+                          onTap: () => Navigator.pushReplacementNamed(
+                            context,
+                            '/signin',
+                          ),
                           child: const Text(
                             "Login",
                             style: TextStyle(
-                                color: Color(0xff66F5CA),
-                                fontWeight: FontWeight.bold),
+                              color: Color(0xff66F5CA),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        )
+                        ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -172,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => loading = true);
 
     try {
-      final registration = await authService.register(
+      await authService.register(
         displayName: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -180,27 +196,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => VerifyOtpScreen(
-        email: emailController.text.trim(),
-        resendAfterSeconds: int.tryParse('${registration['resendAfterSeconds']}') ?? 60,
-        initialOtp: registration['developmentOtp']?.toString(),
-      )));
-    } on PriceShieldApiException catch (e) {
-      _show(e.message);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerifyOtpScreen(
+            email: emailController.text.trim(),
+            displayName: nameController.text.trim(),
+            mobile: mobilenumbarController.text.trim(),
+          ),
+        ),
+      );
+    } on PriceShieldAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        await _continueExistingAccount();
+      } else {
+        _show(e.message);
+      }
     } catch (_) {
-      _show('Account could not be created. Check your connection and try again.');
+      _show(
+        'Account could not be created. Check your connection and try again.',
+      );
     }
 
     if (mounted) setState(() => loading = false);
   }
 
-  void _show(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _continueExistingAccount() async {
+    try {
+      await authService.continueUnverifiedRegistration(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+      if (!mounted) return;
+      _show('This email is already registered but not verified. A new verification link was sent.');
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerifyOtpScreen(
+            email: emailController.text.trim(),
+            displayName: nameController.text.trim(),
+            mobile: mobilenumbarController.text.trim(),
+          ),
+        ),
+      );
+    } on PriceShieldAuthException catch (error) {
+      _show(error.message);
+    }
   }
 
-  Widget _field(TextEditingController c, String h, IconData i,
-      {bool isPassword = false}) {
+  void _show(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Widget _field(
+    TextEditingController c,
+    String h,
+    IconData i, {
+    bool isPassword = false,
+  }) {
     return TextField(
       controller: c,
       obscureText: isPassword,

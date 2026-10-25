@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/services/auth_service.dart';
@@ -16,11 +18,14 @@ class _SignInScreenState extends State<SignInScreen> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+  Timer? _resendTimer;
+  int _resendSeconds = 0;
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
@@ -42,8 +47,11 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.shield_rounded,
-                        size: 60, color: Colors.white),
+                    const Icon(
+                      Icons.shield_rounded,
+                      size: 60,
+                      color: Colors.white,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       "PriceShield",
@@ -57,7 +65,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     const Text(
                       "Pay the right price. Always.",
                       style: TextStyle(color: Colors.white70),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -77,7 +85,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       color: Colors.black12,
                       blurRadius: 20,
                       offset: const Offset(0, 10),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
@@ -96,9 +104,20 @@ class _SignInScreenState extends State<SignInScreen> {
 
                     _field(emailController, "Email address", Icons.email),
                     const SizedBox(height: 14),
-                    _field(passwordController, "Password", Icons.lock,
-                        isPassword: true),
+                    _field(
+                      passwordController,
+                      "Password",
+                      Icons.lock,
+                      isPassword: true,
+                    ),
 
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: loading ? null : _forgotPassword,
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -115,13 +134,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         child: loading
                             ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
+                                color: Colors.white,
+                              )
                             : const Text(
-                          "Login",
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 16),
-                        ),
+                                "Login",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
                       ),
                     ),
 
@@ -137,12 +158,13 @@ class _SignInScreenState extends State<SignInScreen> {
                           child: const Text(
                             "Sign up",
                             style: TextStyle(
-                                color: Color(0xff66F5CA),
-                                fontWeight: FontWeight.bold),
+                              color: Color(0xff66F5CA),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        )
+                        ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -155,8 +177,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   /// 🔥 LOGIN LOGIC
   Future<void> loginUser() async {
-    if (emailController.text.isEmpty ||
-        passwordController.text.isEmpty) {
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       _show("Email & Password required");
       return;
     }
@@ -171,22 +192,94 @@ class _SignInScreenState extends State<SignInScreen> {
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
+    } on PriceShieldAuthException catch (e) {
+      if (e.code == 'email-not-verified') {
+        await _showUnverifiedDialog();
+      } else {
+        _show(e.message);
+      }
     } on PriceShieldApiException catch (e) {
       _show(e.message);
     } catch (_) {
-      _show('Login could not be completed. Check your connection and try again.');
+      _show(
+        'Login could not be completed. Check your connection and try again.',
+      );
     }
 
     if (mounted) setState(() => loading = false);
   }
 
-  void _show(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _forgotPassword() async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _show('Enter your email address first.');
+      return;
+    }
+    setState(() => loading = true);
+    try {
+      await authService.sendPasswordReset(email);
+      _show('Password reset link sent. Check your inbox.');
+    } on PriceShieldAuthException catch (error) {
+      _show(error.message);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
-  Widget _field(TextEditingController c, String h, IconData i,
-      {bool isPassword = false}) {
+  Future<void> _showUnverifiedDialog() async {
+    if (!mounted) return;
+    final resend = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Email not verified'),
+        content: const Text(
+          'Verify your email using the link we sent before signing in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Resend link'),
+          ),
+        ],
+      ),
+    );
+    if (resend != true) return;
+    if (_resendSeconds > 0) {
+      _show('Please wait ${_resendSeconds}s before requesting another link.');
+      return;
+    }
+    try {
+      await authService.resendVerification();
+      _resendSeconds = 60;
+      _resendTimer?.cancel();
+      _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_resendSeconds <= 1) {
+          timer.cancel();
+          _resendSeconds = 0;
+        } else {
+          _resendSeconds--;
+        }
+      });
+      _show('A new verification link was sent.');
+    } on PriceShieldAuthException catch (error) {
+      _show(error.message);
+    }
+  }
+
+  void _show(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Widget _field(
+    TextEditingController c,
+    String h,
+    IconData i, {
+    bool isPassword = false,
+  }) {
     return TextField(
       controller: c,
       obscureText: isPassword,

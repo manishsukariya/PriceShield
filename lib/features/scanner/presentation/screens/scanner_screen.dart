@@ -71,7 +71,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
           MobileScanner(
             fit: BoxFit.cover,
             onDetect: _onDetect,
-            errorBuilder: (_, error, __) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Camera could not start. Allow camera permission in phone settings and try again.\n\n${error.errorCode.name}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white))),
+            errorBuilder: (_, error, __) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Camera could not start. Allow camera permission in phone settings and try again.\n\n${error.errorCode.name}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
           ),
           IgnorePointer(child: Center(child: Container(width: 270, height: 170, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), borderRadius: BorderRadius.circular(22))))),
           Positioned(top: 24, left: 24, right: 24, child: Text('Place the barcode inside the frame', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, shadows: [Shadow(color: Colors.black.withOpacity(.7), blurRadius: 4)]))),

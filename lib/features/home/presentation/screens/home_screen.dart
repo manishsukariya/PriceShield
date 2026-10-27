@@ -4,6 +4,7 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/education/presentation/screens/education_screen.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scan_details_screen.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scanner_screen.dart';
+import 'package:priceshield/core/widgets/app_ui.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
           future: _content,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator(color: Color(0xff57C7A7)));
-            if (snapshot.hasError) return ListView(children: const [SizedBox(height: 180), Center(child: Text('Could not load your dashboard.\nPull down to try again.', textAlign: TextAlign.center))]);
+            if (snapshot.hasError) return ListView(padding: const EdgeInsets.fromLTRB(20, 120, 20, 100), children: [InlineError(message: 'Could not load your dashboard.', onRetry: _refresh)]);
             final scans = List<Map<String, dynamic>>.from(snapshot.data![0] as List);
             final complaints = List<Map<String, dynamic>>.from(snapshot.data![1] as List);
             return ListView(

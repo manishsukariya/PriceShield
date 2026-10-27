@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaint_details_screen.dart';
+import 'package:priceshield/core/widgets/app_ui.dart';
 
 class ComplaintsScreen extends StatefulWidget {
   const ComplaintsScreen({super.key});
@@ -19,7 +20,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       future: _complaints,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator(color: Color(0xff57C7A7)));
-        if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(snapshot.error is PriceShieldApiException ? (snapshot.error as PriceShieldApiException).message : 'Could not load complaints.')));
+        if (snapshot.hasError) return Padding(padding: const EdgeInsets.all(20), child: InlineError(message: snapshot.error is PriceShieldApiException ? (snapshot.error as PriceShieldApiException).message : 'Could not load complaints.', onRetry: _refresh));
         final all = snapshot.data ?? <Map<String, dynamic>>[];
         final filtered = _filter == 'All' ? all : all.where((item) => item['status']?.toString().toUpperCase() == _filter.toUpperCase()).toList();
         final resolved = all.where((i) => i['status']?.toString().toUpperCase() == 'RESOLVED').length;

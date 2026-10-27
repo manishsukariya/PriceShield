@@ -8,6 +8,14 @@
       "args": [
         "--dart-define=PRICESHIELD_API_BASE_URL=http://192.168.0.107:3000"
       ]
+    },
+    {
+      "name": "PriceShield: USB phone with Render API",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=PRICESHIELD_API_BASE_URL=https://priceshield-r4v5.onrender.com"
+      ]
     }
   ]
 }

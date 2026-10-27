@@ -35,53 +35,37 @@ class _MainNavigationState extends State<MainNavigation> {
       body: _pages[_currentIndex],
 
       floatingActionButton: _currentIndex == 0
-          ? Padding(
-        padding: const EdgeInsets.only(bottom: 45),
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.85,
-          height: 55,
-          child: ElevatedButton.icon(
-            onPressed: _openScanner,
-            icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-            label: const Text(
-              "Scan Product",
-              style: TextStyle(
-                fontSize: 16,color: Colors.white
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
+          ? FloatingActionButton.large(
+              onPressed: _openScanner,
+              tooltip: 'Scan product',
               backgroundColor: const Color(0xff0D1B2A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-        ),
-      )
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.qr_code_scanner, size: 30),
+            )
           : null,
 
       floatingActionButtonLocation:
       FloatingActionButtonLocation.centerDocked,
 
       /// ✅ BOTTOM NAV BAR
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.home_outlined),
             label: "Home",
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             label: "Complaints",
 
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
             label: "Profile",
           ),

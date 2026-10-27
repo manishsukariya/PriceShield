@@ -346,6 +346,18 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              child: const Row(children: [
+                _ComplaintStep(number: '1', label: 'Details', active: true),
+                _StepLine(),
+                _ComplaintStep(number: '2', label: 'Evidence'),
+                _StepLine(),
+                _ComplaintStep(number: '3', label: 'Review'),
+              ]),
+            ),
+            const SizedBox(height: 14),
 
             /// PRODUCT SUMMARY
             Container(
@@ -692,4 +704,19 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
       borderSide: BorderSide.none,
     ),
   );
+}
+
+class _ComplaintStep extends StatelessWidget {
+  const _ComplaintStep({required this.number, required this.label, this.active = false});
+  final String number;
+  final String label;
+  final bool active;
+  @override
+  Widget build(BuildContext context) => Expanded(child: Column(children: [CircleAvatar(radius: 14, backgroundColor: active ? const Color(0xff2BAE9A) : const Color(0xffE4E8EF), child: Text(number, style: TextStyle(color: active ? Colors.white : const Color(0xff6B7280), fontSize: 12, fontWeight: FontWeight.bold))), const SizedBox(height: 5), Text(label, style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.bold : FontWeight.normal, color: active ? const Color(0xff2BAE9A) : const Color(0xff6B7280)))]));
+}
+
+class _StepLine extends StatelessWidget {
+  const _StepLine();
+  @override
+  Widget build(BuildContext context) => const SizedBox(width: 18, child: Divider(color: Color(0xffD9DEE7)));
 }

@@ -5,6 +5,7 @@ import 'package:priceshield/app/navigation/main_navigation.dart';
 import 'package:priceshield/features/auth/presentation/screens/register_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
 
 class PriceShieldApp extends StatelessWidget {
   const PriceShieldApp({super.key});
@@ -14,6 +15,7 @@ class PriceShieldApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PriceShield',
+      theme: PriceShieldTheme.light(),
       home: const AuthGate(),
       routes: {
         '/welcome': (context) => const WelcomeScreen(),

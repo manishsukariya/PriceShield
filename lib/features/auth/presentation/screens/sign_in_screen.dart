@@ -18,6 +18,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+  bool _passwordVisible = false;
   Timer? _resendTimer;
   int _resendSeconds = 0;
 
@@ -109,6 +110,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       "Password",
                       Icons.lock,
                       isPassword: true,
+                      autofillHints: const [AutofillHints.password],
                     ),
 
                     Align(
@@ -279,10 +281,13 @@ class _SignInScreenState extends State<SignInScreen> {
     String h,
     IconData i, {
     bool isPassword = false,
+    List<String>? autofillHints,
   }) {
     return TextField(
       controller: c,
-      obscureText: isPassword,
+      obscureText: isPassword && !_passwordVisible,
+      keyboardType: c == emailController ? TextInputType.emailAddress : TextInputType.text,
+      autofillHints: autofillHints ?? (c == emailController ? const [AutofillHints.username] : null),
       decoration: InputDecoration(
         prefixIcon: Icon(i),
         hintText: h,
@@ -292,6 +297,13 @@ class _SignInScreenState extends State<SignInScreen> {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
+        suffixIcon: isPassword
+            ? IconButton(
+                tooltip: _passwordVisible ? 'Hide password' : 'Show password',
+                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+                icon: Icon(_passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+              )
+            : null,
       ),
     );
   }

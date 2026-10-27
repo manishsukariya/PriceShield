@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final mobilenumbarController = TextEditingController();
 
   bool loading = false;
+  bool _passwordVisible = false;
 
   @override
   void dispose() {
@@ -111,6 +112,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       "Password",
                       Icons.lock,
                       isPassword: true,
+                      autofillHints: const [AutofillHints.newPassword],
                     ),
 
                     const SizedBox(height: 24),
@@ -255,10 +257,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String h,
     IconData i, {
     bool isPassword = false,
+    List<String>? autofillHints,
   }) {
     return TextField(
       controller: c,
-      obscureText: isPassword,
+      obscureText: isPassword && !_passwordVisible,
+      keyboardType: c == emailController ? TextInputType.emailAddress : TextInputType.text,
+      autofillHints: autofillHints ?? (c == emailController ? const [AutofillHints.email] : null),
       decoration: InputDecoration(
         prefixIcon: Icon(i),
         hintText: h,
@@ -268,6 +273,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
+        suffixIcon: isPassword
+            ? IconButton(
+                tooltip: _passwordVisible ? 'Hide password' : 'Show password',
+                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+                icon: Icon(_passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+              )
+            : null,
       ),
     );
   }

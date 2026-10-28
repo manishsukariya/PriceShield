@@ -30,6 +30,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            // Keep release builds reliable while ML Kit's optional language
+            // classes are resolved by the Flutter text-recognition plugin.
+            // This is a local/test APK; production signing and shrinking can
+            // be enabled after a dedicated R8 ruleset is validated.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

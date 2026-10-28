@@ -3,6 +3,7 @@ import 'package:priceshield/features/complaints/presentation/screens/complaints_
 import 'package:priceshield/features/home/presentation/screens/home_screen.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scanner_screen.dart';
 import 'package:priceshield/features/profile/presentation/screens/profile_screen.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -38,7 +39,7 @@ class _MainNavigationState extends State<MainNavigation> {
           ? FloatingActionButton.large(
               onPressed: _openScanner,
               tooltip: 'Scan product',
-              backgroundColor: const Color(0xff0D1B2A),
+              backgroundColor: PriceShieldColors.navy,
               foregroundColor: Colors.white,
               child: const Icon(Icons.qr_code_scanner, size: 30),
             )

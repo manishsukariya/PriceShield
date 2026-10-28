@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/services/auth_service.dart';
 import 'package:priceshield/features/auth/presentation/screens/verify_otp_screen.dart';
 
@@ -32,7 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF7F7F7),
+      backgroundColor: PriceShieldColors.background,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -42,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Container(
                 height: 280,
                 width: double.infinity,
-                color: const Color(0xff66F5CA),
+                color: PriceShieldColors.navy,
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +124,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: ElevatedButton(
                         onPressed: loading ? null : registerUser,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff66F5CA),
+                          backgroundColor: PriceShieldColors.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -156,7 +157,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: const Text(
                             "Login",
                             style: TextStyle(
-                              color: Color(0xff66F5CA),
+                              color: PriceShieldColors.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -268,7 +269,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         prefixIcon: Icon(i),
         hintText: h,
         filled: true,
-        fillColor: const Color(0xffF3F4F6),
+        fillColor: PriceShieldColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

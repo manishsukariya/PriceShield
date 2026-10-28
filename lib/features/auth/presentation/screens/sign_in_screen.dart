@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/services/auth_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -33,7 +34,7 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF7F7F7),
+      backgroundColor: PriceShieldColors.background,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -43,7 +44,7 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Container(
                 height: 280,
                 width: double.infinity,
-                color: const Color(0xff66F5CA),
+                color: PriceShieldColors.navy,
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -129,7 +130,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: ElevatedButton(
                         onPressed: loading ? null : loginUser,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xff66F5CA),
+                          backgroundColor: PriceShieldColors.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -160,7 +161,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           child: const Text(
                             "Sign up",
                             style: TextStyle(
-                              color: Color(0xff66F5CA),
+                              color: PriceShieldColors.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -292,7 +293,7 @@ class _SignInScreenState extends State<SignInScreen> {
         prefixIcon: Icon(i),
         hintText: h,
         filled: true,
-        fillColor: const Color(0xffF3F4F6),
+        fillColor: PriceShieldColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

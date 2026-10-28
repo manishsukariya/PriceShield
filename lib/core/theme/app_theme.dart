@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
 abstract final class PriceShieldColors {
-  static const navy = Color(0xff0D1B2A);
-  static const primary = Color(0xff2BAE9A);
-  static const mint = Color(0xff66F5CA);
-  static const background = Color(0xffF6F7F9);
+  static const navy = Color(0xff10233F);
+  static const primary = Color(0xff0F9D8A);
+  static const mint = Color(0xffDDF7F1);
+  static const background = Color(0xffF6F8FB);
   static const surface = Colors.white;
-  static const text = Color(0xff162238);
-  static const muted = Color(0xff6B7280);
-  static const success = Color(0xff16856F);
-  static const warning = Color(0xffB76E00);
-  static const danger = Color(0xffB42318);
+  static const text = Color(0xff172033);
+  static const muted = Color(0xff5D6878);
+  static const border = Color(0xffDCE3EC);
+  static const success = Color(0xff168A68);
+  static const warning = Color(0xffC98216);
+  static const danger = Color(0xffC94C4C);
 }
 
 abstract final class PriceShieldTheme {
@@ -69,13 +70,13 @@ abstract final class PriceShieldTheme {
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 48),
             foregroundColor: PriceShieldColors.navy,
-            side: const BorderSide(color: Color(0xffD9DEE7)),
+            side: const BorderSide(color: PriceShieldColors.border),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
         navigationBarTheme: const NavigationBarThemeData(
           backgroundColor: Colors.white,
-          indicatorColor: Color(0x332BAE9A),
+          indicatorColor: Color(0x260F9D8A),
           labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ),
       );

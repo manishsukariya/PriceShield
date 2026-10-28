@@ -43,7 +43,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _metric(String label, String value, IconData icon) => Expanded(child: Column(children: [Icon(icon, color: PriceShieldColors.primary, size: 22), const SizedBox(height: 7), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 2), Text(label, style: const TextStyle(color: PriceShieldColors.muted, fontSize: 12))]));
   Widget _divider() => Container(width: 1, height: 42, color: PriceShieldColors.border);
   Widget _rightsCard() => AppCard(color: const Color(0xfffff7e8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xffffe7b8), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.lightbulb_outline_rounded, color: PriceShieldColors.warning)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Know your rights', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 5), const Text('MRP includes all taxes. A shop cannot legally charge more.', style: TextStyle(color: PriceShieldColors.muted, height: 1.35)), const SizedBox(height: 8), GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsumerEducationScreen())), child: const Text('Learn more', style: TextStyle(color: PriceShieldColors.navy, fontWeight: FontWeight.w800)))]))]));
-  Widget _scanTile(Map<String, dynamic> item) { final overcharged = item['status']?.toString().toUpperCase() == 'OVERCHARGED'; return Padding(padding: const EdgeInsets.only(bottom: 10), child: AppCard(padding: EdgeInsets.zero, child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5), leading: const CircleAvatar(backgroundColor: PriceShieldColors.mint, child: Icon(Icons.qr_code_2_rounded, color: PriceShieldColors.primary)), title: Text(item['productName']?.toString() ?? 'Product', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('MRP \u20B9${item['mrp'] ?? 0}  |  Paid \u20B9${item['chargedPrice'] ?? 0}'), trailing: StatusPill(label: overcharged ? 'Overcharged' : 'Within MRP', color: overcharged ? PriceShieldColors.danger : PriceShieldColors.success), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ScanDetailsScreen(scanData: item))))); }
+  Widget _scanTile(Map<String, dynamic> item) {
+    final overcharged = item['status']?.toString().toUpperCase() == 'OVERCHARGED';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          leading: const CircleAvatar(
+            backgroundColor: PriceShieldColors.mint,
+            child: Icon(Icons.qr_code_2_rounded, color: PriceShieldColors.primary),
+          ),
+          title: Text(
+            item['productName']?.toString() ?? 'Product',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text('MRP \u20B9${item['mrp'] ?? 0}  |  Paid \u20B9${item['chargedPrice'] ?? 0}'),
+          trailing: StatusPill(
+            label: overcharged ? 'Overcharged' : 'Within MRP',
+            color: overcharged ? PriceShieldColors.danger : PriceShieldColors.success,
+          ),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ScanDetailsScreen(scanData: item)),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _emptyScans() => AppCard(child: Column(children: const [Icon(Icons.qr_code_scanner_rounded, size: 36, color: PriceShieldColors.muted), SizedBox(height: 10), Text('No scans yet', style: TextStyle(fontWeight: FontWeight.w700)), SizedBox(height: 4), Text('Scan a product to start protecting your purchases.', textAlign: TextAlign.center, style: TextStyle(color: PriceShieldColors.muted))]));
 }
 

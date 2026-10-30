@@ -132,3 +132,4 @@ class _ManualBarcodeDialogState extends State<_ManualBarcodeDialog> {
           FilledButton(onPressed: _continue, child: const Text('Continue')),
         ],
       );
+}

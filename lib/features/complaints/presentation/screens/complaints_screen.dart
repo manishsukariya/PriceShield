@@ -118,7 +118,18 @@ class _ComplaintsSkeleton extends StatelessWidget {
           const SizedBox(height: 24),
           Container(height: 22, width: 150, decoration: BoxDecoration(color: const Color(0xffE8EDF3), borderRadius: BorderRadius.circular(8))),
           const SizedBox(height: 16),
-          ...List.generate(3, (index) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Container(height: 152, decoration: BoxDecoration(color: const Color(0xffE8EDF3), borderRadius: BorderRadius.circular(18)))),
+          ...List.generate(3, (_) => _skeletonCard()),
         ],
+      );
+
+  Widget _skeletonCard() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          height: 152,
+          decoration: BoxDecoration(
+            color: const Color(0xffE8EDF3),
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
       );
 }

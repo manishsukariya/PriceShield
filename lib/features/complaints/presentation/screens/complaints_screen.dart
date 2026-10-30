@@ -71,14 +71,28 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         padding: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => ComplaintDetailsScreen(complaintId: item['id'].toString()))); if (mounted) _refresh(); },
-          child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: PriceShieldColors.mint, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.receipt_long_rounded, color: PriceShieldColors.primary)), const SizedBox(width: 12), Expanded(child: Text(item['productName']?.toString() ?? 'Product complaint', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))), StatusPill(label: _friendlyStatus(status), color: statusColor)]),
-            const SizedBox(height: 16),
-            Row(children: [_amount('MRP', item['mrp']), _amount('Charged', item['chargedPrice']), _amount('Overcharge', item['overcharge'], PriceShieldColors.danger)]),
-            const SizedBox(height: 14),
-            const Row(children: [Expanded(child: Text('View case details', style: TextStyle(color: PriceShieldColors.primary, fontWeight: FontWeight.w700))), Icon(Icons.arrow_forward_rounded, color: PriceShieldColors.primary, size: 18)]),
-          ]),
+          onTap: () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => ComplaintDetailsScreen(complaintId: item['id'].toString())));
+            if (mounted) _refresh();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(width: 44, height: 44, decoration: BoxDecoration(color: PriceShieldColors.mint, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.receipt_long_rounded, color: PriceShieldColors.primary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(item['productName']?.toString() ?? 'Product complaint', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                  StatusPill(label: _friendlyStatus(status), color: statusColor),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [_amount('MRP', item['mrp']), _amount('Charged', item['chargedPrice']), _amount('Overcharge', item['overcharge'], PriceShieldColors.danger)]),
+                const SizedBox(height: 14),
+                const Row(children: [Expanded(child: Text('View case details', style: TextStyle(color: PriceShieldColors.primary, fontWeight: FontWeight.w700))), Icon(Icons.arrow_forward_rounded, color: PriceShieldColors.primary, size: 18)]),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -95,5 +109,16 @@ class _EmptyComplaints extends StatelessWidget {
 
 class _ComplaintsSkeleton extends StatelessWidget {
   const _ComplaintsSkeleton();
-  @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(20), children: [const SizedBox(height: 12), Container(height: 116, decoration: BoxDecoration(color: Color(0xffE8EDF3), borderRadius: BorderRadius.all(Radius.circular(22)))), const SizedBox(height: 24), Container(height: 22, width: 150, decoration: BoxDecoration(color: Color(0xffE8EDF3), borderRadius: BorderRadius.all(Radius.circular(8)))), const SizedBox(height: 16), ...List.generate(3, (index) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Container(height: 152, decoration: BoxDecoration(color: Color(0xffE8EDF3), borderRadius: BorderRadius.all(Radius.circular(18)))))]);
+  @override
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const SizedBox(height: 12),
+          Container(height: 116, decoration: BoxDecoration(color: const Color(0xffE8EDF3), borderRadius: BorderRadius.circular(22))),
+          const SizedBox(height: 24),
+          Container(height: 22, width: 150, decoration: BoxDecoration(color: const Color(0xffE8EDF3), borderRadius: BorderRadius.circular(8))),
+          const SizedBox(height: 16),
+          ...List.generate(3, (index) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Container(height: 152, decoration: BoxDecoration(color: const Color(0xffE8EDF3), borderRadius: BorderRadius.circular(18)))),
+        ],
+      );
 }

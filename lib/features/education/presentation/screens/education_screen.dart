@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
+import 'package:priceshield/core/widgets/app_ui.dart';
 
 class ConsumerEducationScreen extends StatelessWidget {
   const ConsumerEducationScreen({super.key});
@@ -6,17 +8,16 @@ class ConsumerEducationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF6F7F9),
+      backgroundColor: PriceShieldColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: PriceShieldColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: PriceShieldColors.text),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "Consumer Education",
-          style: TextStyle(color: Colors.black),
+          "Consumer education",
         ),
       ),
       body: SingleChildScrollView(
@@ -26,12 +27,9 @@ class ConsumerEducationScreen extends StatelessWidget {
           children: [
 
             /// ---------- TOP GREEN CARD ----------
-            Container(
+            AppCard(
+              color: PriceShieldColors.navy,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xff57C7A7),
-                borderRadius: BorderRadius.circular(20),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
@@ -146,61 +144,19 @@ class ConsumerEducationScreen extends StatelessWidget {
   }
 
   /// ---------- WIDGETS ----------
-  static Widget _infoCard(
-      IconData icon, Color color, String title, String desc) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withOpacity(0.15),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 6),
-                Text(desc,
-                    style:
-                    const TextStyle(fontSize: 13, color: Colors.black54)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
+  static Widget _infoCard(IconData icon, Color color, String title, String desc) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: AppCard(
+          child: Row(children: [
+            CircleAvatar(backgroundColor: color.withOpacity(.15), child: Icon(icon, color: color)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)), const SizedBox(height: 6), Text(desc, style: const TextStyle(fontSize: 13, color: PriceShieldColors.muted, height: 1.35))])),
+          ]),
+        ),
+      );
 
-  static Widget _faq(String q, String a) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(q,
-              style:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 6),
-          Text(a,
-              style:
-              const TextStyle(fontSize: 13, color: Colors.black54)),
-        ],
-      ),
-    );
-  }
+  static Widget _faq(String question, String answer) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(question, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)), const SizedBox(height: 6), Text(answer, style: const TextStyle(fontSize: 13, color: PriceShieldColors.muted, height: 1.35))])),
+      );
 }

@@ -5,6 +5,8 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
+import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scan_result_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
@@ -132,7 +134,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         labelText: label,
         prefixText: prefix,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: PriceShieldColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -142,14 +144,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(backgroundColor: PriceShieldColors.background, body: Center(child: CircularProgressIndicator(color: PriceShieldColors.primary)));
     }
     final manualEntry = !_isKnownProduct;
     return Scaffold(
-      backgroundColor: const Color(0xffF6F7F9),
+      backgroundColor: PriceShieldColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xffF6F7F9),
-        foregroundColor: Colors.black,
+        backgroundColor: PriceShieldColors.background,
+        foregroundColor: PriceShieldColors.text,
         elevation: 0,
         title: const Text('Product details'),
       ),
@@ -159,16 +161,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Container(
+              AppCard(
+                color: manualEntry ? const Color(0xfffff7e8) : PriceShieldColors.mint,
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: manualEntry ? const Color(0xffFFF1DD) : const Color(0xffE3F6F1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
                 child: Row(
                   children: [
                     Icon(manualEntry ? Icons.edit_note : Icons.verified_outlined,
-                        color: manualEntry ? Colors.orange : Colors.teal),
+                        color: manualEntry ? PriceShieldColors.warning : PriceShieldColors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -185,7 +184,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 Text(_loadError!, style: const TextStyle(color: Colors.redAccent)),
               ],
               const SizedBox(height: 20),
-              Text('Barcode: ${widget.barcode}', style: const TextStyle(color: Colors.black54)),
+              AppCard(child: Row(children: [const Icon(Icons.qr_code_2_rounded, color: PriceShieldColors.primary), const SizedBox(width: 10), Expanded(child: Text('Barcode: ${widget.barcode}', style: const TextStyle(color: PriceShieldColors.muted)))])),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
@@ -217,9 +216,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
               if (manualEntry) ...[
                 const SizedBox(height: 20),
-                Container(
+                AppCard(
+                  color: const Color(0xffF1F4FF),
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: const Color(0xffF1F4FF), borderRadius: BorderRadius.circular(14)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -262,7 +261,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 child: ElevatedButton(
                   onPressed: _checkPrice,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff0D1B2A),
+                    backgroundColor: PriceShieldColors.navy,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),

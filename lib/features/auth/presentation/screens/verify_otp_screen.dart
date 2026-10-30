@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:priceshield/core/services/auth_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
+import 'package:priceshield/core/theme/app_theme.dart';
+import 'package:priceshield/core/widgets/app_ui.dart';
 
 /// Existing file/route name retained for navigation compatibility. Firebase
 /// sends a verification link; no OTP is generated or entered here.
@@ -96,41 +98,12 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Verify your email')),
-    body: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 40),
-          const Icon(Icons.mark_email_read_outlined, size: 64),
-          const SizedBox(height: 20),
-          const Text(
-            'Check your inbox',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'A verification link was sent to ${widget.email}. Open the link, then return here.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 28),
-          FilledButton(
-            onPressed: _loading ? null : _checkVerification,
-            child: Text(_loading ? 'Checking...' : 'I verified my email'),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: _loading || _seconds > 0 ? null : _resend,
-            child: Text(
-              _seconds > 0
-                  ? 'Resend link in ${_seconds}s'
-                  : 'Resend verification link',
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        backgroundColor: PriceShieldColors.background,
+        appBar: AppBar(title: const Text('Verify your email')),
+        body: ListView(padding: const EdgeInsets.fromLTRB(20, 18, 20, 32), children: [
+          AppCard(color: PriceShieldColors.navy, child: Column(children: [Container(width: 76, height: 76, decoration: BoxDecoration(color: PriceShieldColors.primary, borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.mark_email_read_outlined, color: Colors.white, size: 40)), const SizedBox(height: 22), const Text('Check your inbox', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)), const SizedBox(height: 10), Text('A verification link was sent to ${widget.email}. Open it, then return here.', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xffC9D5E6), height: 1.4))])),
+          const SizedBox(height: 16),
+          AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [const Text('Almost there', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 8), const Text('After opening the link, tap the button below so we can finish setting up your account.', style: TextStyle(color: PriceShieldColors.muted, height: 1.4)), const SizedBox(height: 20), SizedBox(height: 52, child: ElevatedButton(onPressed: _loading ? null : _checkVerification, child: Text(_loading ? 'Checking...' : 'I verified my email'))), const SizedBox(height: 8), TextButton(onPressed: _loading || _seconds > 0 ? null : _resend, child: Text(_seconds > 0 ? 'Resend link in ${_seconds}s' : 'Resend verification link'))]))
+        ]),
+      );
 }

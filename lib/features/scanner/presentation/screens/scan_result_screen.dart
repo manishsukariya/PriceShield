@@ -16,7 +16,25 @@ class ScanResultScreen extends StatelessWidget {
       const SizedBox(height: 16),
       AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: Theme.of(context).textTheme.titleLarge), const SizedBox(height: 5), Text('Barcode: $barcode', style: const TextStyle(color: PriceShieldColors.muted, fontSize: 12)), const Divider(height: 28), _row('Printed MRP', mrp), _row('Amount charged', charged), _row('Difference', difference, overcharged ? PriceShieldColors.danger : PriceShieldColors.success)])),
       const SizedBox(height: 24),
-      if (overcharged) SizedBox(height: 52, child: ElevatedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ComplaintScreen(name: name, barcode: barcode, mrp: mrp, charged: charged))), icon: const Icon(Icons.report_problem_outlined), label: const Text('File a complaint')),
+      if (overcharged)
+        SizedBox(
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ComplaintScreen(
+                  name: name,
+                  barcode: barcode,
+                  mrp: mrp.toInt(),
+                  charged: charged.toInt(),
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.report_problem_outlined),
+            label: const Text('File a complaint'),
+          ),
+        ),
     ]));
   }
   Widget _row(String label, num value, [Color color = PriceShieldColors.text]) => Padding(padding: const EdgeInsets.only(bottom: 14), child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: PriceShieldColors.muted))), Text('\u{20B9}${value.toStringAsFixed(2)}', style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16))]));

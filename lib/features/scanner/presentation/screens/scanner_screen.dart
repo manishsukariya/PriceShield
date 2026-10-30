@@ -32,24 +32,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Future<void> _enterBarcodeManually() async {
-    final controller = TextEditingController();
     final code = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enter barcode'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Barcode number'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Continue')),
-        ],
-      ),
+      builder: (_) => const _ManualBarcodeDialog(),
     );
-    controller.dispose();
     if (!mounted || code == null || code.isEmpty) return;
     setState(() => _openingProduct = true);
     await Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(barcode: code)));
@@ -90,3 +76,59 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 }
+
+/// Owns the text controller for the entire dialog route lifecycle. Disposing
+/// it in State.dispose prevents Flutter's inherited EditableText assertion
+/// when the user dismisses the dialog with Cancel.
+class _ManualBarcodeDialog extends StatefulWidget {
+  const _ManualBarcodeDialog();
+  @override State<_ManualBarcodeDialog> createState() => _ManualBarcodeDialogState();
+}
+
+class _ManualBarcodeDialogState extends State<_ManualBarcodeDialog> {
+  late final TextEditingController _controller;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    final value = _controller.text.trim();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Enter barcode'),
+        content: Form(
+          key: _formKey,
+          child: TextFormField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _continue(),
+            decoration: const InputDecoration(labelText: 'Barcode number', hintText: 'e.g. 8901234567890'),
+            validator: (value) {
+              final code = value?.trim() ?? '';
+              if (code.isEmpty) return 'Enter a barcode';
+              if (!RegExp(r'^\d{6,14}$').hasMatch(code)) return 'Enter 6 to 14 digits';
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: _continue, child: const Text('Continue')),
+        ],
+      );

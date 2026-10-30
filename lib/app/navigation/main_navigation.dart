@@ -36,17 +36,18 @@ class _MainNavigationState extends State<MainNavigation> {
       body: _pages[_currentIndex],
 
       floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.large(
+          ? FloatingActionButton.extended(
               onPressed: _openScanner,
               tooltip: 'Scan product',
               backgroundColor: PriceShieldColors.navy,
               foregroundColor: Colors.white,
-              child: const Icon(Icons.qr_code_scanner, size: 30),
+              icon: const Icon(Icons.qr_code_scanner_rounded),
+              label: const Text('Scan product'),
             )
           : null,
 
       floatingActionButtonLocation:
-      FloatingActionButtonLocation.centerDocked,
+          FloatingActionButtonLocation.centerFloat,
 
       /// ✅ BOTTOM NAV BAR
       bottomNavigationBar: NavigationBar(

@@ -52,7 +52,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final product = await priceShieldApi.getProduct(widget.barcode);
       _nameController.text = product['name']?.toString() ?? '';
       final mrp = num.tryParse(product['mrp']?.toString() ?? '');
-      _mrpController.text = mrp?.toStringAsFixed(0) ?? '';
+      _mrpController.text = mrp?.toString() ?? '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
     } on PriceShieldApiException {
@@ -66,8 +66,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   void _checkPrice() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final mrp = int.parse(_mrpController.text.trim());
-    final charged = int.parse(_chargedPriceController.text.trim());
+    final mrp = num.tryParse(_mrpController.text.trim());
+    final charged = num.tryParse(_chargedPriceController.text.trim());
+    if (mrp == null || charged == null || mrp <= 0 || charged <= 0) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -99,7 +100,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final text = result.text.trim();
       if (text.isNotEmpty) {
         _ocrText = [_ocrText, text].where((item) => item.isNotEmpty).join('\n');
-        final match = RegExp(r'(?:MRP|Rs\\.?|₹)\\s*[:\\-]?\\s*(\\d+(?:\\.\\d{1,2})?)', caseSensitive: false).firstMatch(_ocrText);
+        final match = RegExp(r'(?:M\.?\s*R\.?\s*P\.?|Rs\.?|₹)\s*(?:[:\-]\s*)?(?:Rs\.?|₹)?\s*(\d+(?:\.\d{1,2})?)', caseSensitive: false).firstMatch(_ocrText);
         if (_mrpController.text.trim().isEmpty && match != null) _mrpController.text = match.group(1)!;
       }
     } catch (_) {
@@ -197,20 +198,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _mrpController,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _decoration('Printed MRP', prefix: '₹ '),
                 validator: (value) {
-                  final amount = int.tryParse(value?.trim() ?? '');
+                  final amount = num.tryParse(value?.trim() ?? '');
                   return amount == null || amount <= 0 ? 'Enter a valid printed MRP' : null;
                 },
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _chargedPriceController,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _decoration('Price charged by shop', prefix: '₹ '),
                 validator: (value) {
-                  final amount = int.tryParse(value?.trim() ?? '');
+                  final amount = num.tryParse(value?.trim() ?? '');
                   return amount == null || amount <= 0 ? 'Enter the price charged' : null;
                 },
               ),

@@ -94,7 +94,7 @@ class ConsumerEducationScreen extends StatelessWidget {
 
             _faq(
               "Can shops charge for plastic bags separately?",
-              "Yes, plastic bags can be charged separately as they are not part of the product MRP.",
+              "A separate charge is not automatically illegal, but the price and bag details must be clearly disclosed before purchase. A surprise charge at the counter, or a mandatory charge without prior notice, may be an unfair trade practice. Keep the bill and report the details.",
             ),
 
             _faq(

@@ -13,8 +13,8 @@ import 'package:video_player/video_player.dart';
 class ComplaintScreen extends StatefulWidget {
   final String name;
   final String barcode;
-  final int mrp;
-  final int charged;
+  final num mrp;
+  final num charged;
 
   const ComplaintScreen({
     super.key,
@@ -44,7 +44,7 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   double? latitude;
   double? longitude;
 
-  int get extra => widget.charged - widget.mrp;
+  num get extra => widget.charged - widget.mrp;
 
   @override
   void initState() {

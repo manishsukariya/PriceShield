@@ -8,6 +8,7 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scan_result_screen.dart';
+import 'package:priceshield/features/scanner/services/packaging_compliance_service.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   const ProductDetailsScreen({super.key, required this.barcode});
@@ -30,13 +31,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   File? _frontImage;
   File? _backImage;
   String _ocrText = '';
+  PackagingComplianceResult? _complianceResult;
   bool _readingPackage = false;
   bool _submittingProduct = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchProduct();
+    final cached = priceShieldApi.getCachedProduct(widget.barcode);
+    if (cached != null) {
+      _nameController.text = cached['name']?.toString() ?? '';
+      final mrp = num.tryParse(cached['mrp']?.toString() ?? '');
+      _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
+      _isKnownProduct =
+          _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
+      _loading = false;
+    } else {
+      _fetchProduct();
+    }
   }
 
   @override
@@ -52,13 +64,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final product = await priceShieldApi.getProduct(widget.barcode);
       _nameController.text = product['name']?.toString() ?? '';
       final mrp = num.tryParse(product['mrp']?.toString() ?? '');
-      _mrpController.text = mrp?.toString() ?? '';
+      _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
-    } on PriceShieldApiException {
-      _loadError = 'Product details could not be fetched. You can enter them manually.';
+      _loadError = null;
+    } on PriceShieldApiException catch (e) {
+      _isKnownProduct = false;
+      if (e.statusCode == 404) {
+        // Product not found in local catalog or OFF fallback.
+        // Ready for instant on-device OCR / manual input without noisy error banner.
+        _loadError = null;
+      } else {
+        _loadError = e.message;
+      }
     } catch (_) {
-      _loadError = 'Product details could not be fetched. You can enter them manually.';
+      _isKnownProduct = false;
+      _loadError = 'Could not reach server. You can enter details manually.';
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -69,6 +90,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final mrp = num.tryParse(_mrpController.text.trim());
     final charged = num.tryParse(_chargedPriceController.text.trim());
     if (mrp == null || charged == null || mrp <= 0 || charged <= 0) return;
+
+    // Cache locally for instant 0ms retrieval on repeated scans
+    priceShieldApi.cacheProduct(widget.barcode, {
+      'barcode': widget.barcode,
+      'name': _nameController.text.trim(),
+      'mrp': mrp,
+    });
+
+    final compliance = _complianceResult ?? PackagingComplianceService.analyze(_ocrText);
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -77,6 +108,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           barcode: widget.barcode,
           mrp: mrp,
           charged: charged,
+          complianceResult: compliance.hasViolation ? compliance : null,
         ),
       ),
     );
@@ -87,7 +119,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (picked == null) return;
     final image = File(picked.path);
     setState(() {
-      if (isFront) _frontImage = image; else _backImage = image;
+      if (isFront) {
+        _frontImage = image;
+      } else {
+        _backImage = image;
+      }
     });
     await _readPackageText(image);
   }
@@ -100,11 +136,78 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final text = result.text.trim();
       if (text.isNotEmpty) {
         _ocrText = [_ocrText, text].where((item) => item.isNotEmpty).join('\n');
-        final match = RegExp(r'(?:M\.?\s*R\.?\s*P\.?|Rs\.?|₹)\s*(?:[:\-]\s*)?(?:Rs\.?|₹)?\s*(\d+(?:\.\d{1,2})?)', caseSensitive: false).firstMatch(_ocrText);
-        if (_mrpController.text.trim().isEmpty && match != null) _mrpController.text = match.group(1)!;
+
+        // Analyze packaging compliance from extracted OCR
+        final compliance = PackagingComplianceService.analyze(_ocrText);
+        if (compliance.hasViolation) {
+          _complianceResult = compliance;
+        }
+
+        // Robust regex matching printed MRP formats:
+        // "MRP Rs. 20", "MRP: ₹15.00", "M.R.P. 25.00", "MRP (INCL. OF ALL TAXES) 50.00",
+        // "MAXIMUM RETAIL PRICE (INCL. OF ALL TAXES) 100", "Rs 10.50", "₹50"
+        final match = RegExp(
+          r'(?:(?:M\.?\s*R\.?\s*P\.?|MAX(?:IMUM)?\.?\s*RETAIL\s*PRICE)(?:\s*\([^)]*\))?|INCL\.?\s*OF\s*ALL\s*TAXES|Rs\.?|INR|₹)\s*[:\.\-]?\s*(?:Rs\.?|INR|₹)?\s*(\d+(?:\.\d{1,2})?)',
+          caseSensitive: false,
+        ).firstMatch(_ocrText);
+
+        if (_mrpController.text.trim().isEmpty && match != null) {
+          _mrpController.text = match.group(1)!;
+        }
+
+        // Suggest name from first clear title-like line if currently empty
+        if (_nameController.text.trim().isEmpty) {
+          final lines = text.split('\n').map((l) => l.trim()).where((l) => l.length >= 3);
+          for (final line in lines) {
+            final lower = line.toLowerCase();
+            if (!lower.startsWith('mrp') &&
+                !lower.startsWith('mfg') &&
+                !lower.startsWith('exp') &&
+                !lower.startsWith('batch') &&
+                !lower.startsWith('net') &&
+                !lower.startsWith('pkd') &&
+                !lower.startsWith('packed') &&
+                !lower.startsWith('use by') &&
+                !lower.startsWith('best before') &&
+                !lower.startsWith('fssai') &&
+                !lower.startsWith('lic') &&
+                !lower.startsWith('qty') &&
+                !lower.startsWith('weight') &&
+                !lower.startsWith('ingredients') &&
+                !lower.startsWith('nutrition') &&
+                !RegExp(r'^\d+$').hasMatch(line)) {
+              _nameController.text = line;
+              break;
+            }
+          }
+        }
+
+        if (mounted) {
+          final compliance = _complianceResult;
+          String toastText;
+          if (compliance != null && compliance.hasViolation) {
+            toastText = match != null
+                ? 'Extracted MRP: \u{20B9}${match.group(1)} • ⚠️ ${compliance.title}'
+                : '⚠️ ${compliance.title}: ${compliance.matchedSnippet ?? ''}';
+          } else {
+            toastText = match != null
+                ? 'Extracted MRP: \u{20B9}${match.group(1)}'
+                : 'Text scanned. Verify fields below.';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(toastText),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Text could not be read. Enter the package details manually.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Text could not be read. Enter the package details manually.')),
+        );
+      }
     } finally {
       await recognizer.close();
       if (mounted) setState(() => _readingPackage = false);
@@ -113,19 +216,59 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _submitForReview() async {
     if (_frontImage == null && _backImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a front or back package photo for review.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add a front or back photo of the package to submit.'),
+          backgroundColor: PriceShieldColors.navy,
+        ),
+      );
       return;
     }
     setState(() => _submittingProduct = true);
     try {
-      final frontUpload = _frontImage == null ? null : await CloudinaryUploadService.uploadFile(file: _frontImage!, isVideo: false);
-      final backUpload = _backImage == null ? null : await CloudinaryUploadService.uploadFile(file: _backImage!, isVideo: false);
+      final frontUpload = _frontImage == null
+          ? null
+          : await CloudinaryUploadService.uploadFile(file: _frontImage!, isVideo: false);
+      final backUpload = _backImage == null
+          ? null
+          : await CloudinaryUploadService.uploadFile(file: _backImage!, isVideo: false);
       final parsedMrp = num.tryParse(_mrpController.text.trim());
-      if (!priceShieldApi.isConfigured) throw const PriceShieldApiException('The PriceShield backend is not configured.');
-      await priceShieldApi.createProductSubmission(barcode: widget.barcode, productName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(), printedMrp: parsedMrp, ocrText: _ocrText, frontImageUrl: frontUpload?.secureUrl, backImageUrl: backUpload?.secureUrl);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product details submitted for review. The MRP remains unverified.')));
+      if (!priceShieldApi.isConfigured) {
+        throw const PriceShieldApiException('Service is temporarily unavailable. Please try again.');
+      }
+      await priceShieldApi.createProductSubmission(
+        barcode: widget.barcode,
+        productName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+        printedMrp: parsedMrp,
+        ocrText: _ocrText,
+        frontImageUrl: frontUpload?.secureUrl,
+        backImageUrl: backUpload?.secureUrl,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Thank you! Product submitted for community review.\n🛡️ +50 ShieldPoints Earned! (Scout Level 1)'),
+            backgroundColor: PriceShieldColors.success,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      if (mounted) {
+        final cleanMsg = error is PriceShieldApiException
+            ? error.message
+            : error
+                .toString()
+                .replaceAll('Bad state: ', '')
+                .replaceAll('Exception: ', '')
+                .replaceAll('StateError: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Could not submit product details.'),
+            backgroundColor: PriceShieldColors.danger,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submittingProduct = false);
     }
@@ -147,7 +290,31 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (_loading) {
       return const Scaffold(backgroundColor: PriceShieldColors.background, body: Center(child: CircularProgressIndicator(color: PriceShieldColors.primary)));
     }
-    final manualEntry = !_isKnownProduct;
+    final hasName = _nameController.text.trim().isNotEmpty;
+    final hasMrp = _mrpController.text.trim().isNotEmpty;
+    final isFullyVerified = _isKnownProduct && hasName && hasMrp;
+    final manualEntry = !isFullyVerified;
+    final bannerMessage = isFullyVerified
+        ? 'Product details found. Verify the MRP printed on the package before continuing.'
+        : hasName
+            ? 'Product found! Enter or verify the printed MRP from the package.'
+            : 'Product not found in catalog. Enter the name and printed MRP from the package.';
+    final bannerColor = isFullyVerified
+        ? PriceShieldColors.mint
+        : hasName
+            ? const Color(0xffe8f4fd)
+            : const Color(0xfffff7e8);
+    final bannerIcon = isFullyVerified
+        ? Icons.verified_outlined
+        : hasName
+            ? Icons.info_outline_rounded
+            : Icons.edit_note;
+    final bannerIconColor = isFullyVerified
+        ? PriceShieldColors.primary
+        : hasName
+            ? const Color(0xff0284c7)
+            : PriceShieldColors.warning;
+
     return Scaffold(
       backgroundColor: PriceShieldColors.background,
       appBar: AppBar(
@@ -163,23 +330,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               AppCard(
-                color: manualEntry ? const Color(0xfffff7e8) : PriceShieldColors.mint,
+                color: bannerColor,
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(manualEntry ? Icons.edit_note : Icons.verified_outlined,
-                        color: manualEntry ? PriceShieldColors.warning : PriceShieldColors.primary),
+                    Icon(bannerIcon, color: bannerIconColor),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        manualEntry
-                            ? 'Product was not found. Enter the name and printed MRP from the package.'
-                            : 'Product details found. Verify the MRP printed on the package before continuing.',
-                      ),
+                      child: Text(bannerMessage),
                     ),
                   ],
                 ),
               ),
+              if (_complianceResult != null && _complianceResult!.hasViolation) ...[
+                const SizedBox(height: 12),
+                AppCard(
+                  color: const Color(0xffFFFBEB),
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.shield_outlined, color: Color(0xffD97706), size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _complianceResult!.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xff92400E),
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _complianceResult!.description,
+                              style: const TextStyle(fontSize: 12, color: Color(0xff78350F), height: 1.3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (_loadError != null) ...[
                 const SizedBox(height: 12),
                 Text(_loadError!, style: const TextStyle(color: Colors.redAccent)),
@@ -223,9 +419,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Help add this product', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Add Unlisted Product', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      const Text('Capture the package front and back. Review any OCR result against the printed label.'),
+                      const Text('Take a photo of the package to auto-fill the price and product details.'),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, runSpacing: 8, children: [
                         OutlinedButton.icon(
@@ -242,7 +438,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       if (_readingPackage) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator()),
                       if (_ocrText.isNotEmpty) const Padding(
                         padding: EdgeInsets.only(top: 10),
-                        child: Text('OCR extracted text is unverified. Correct the fields above before continuing.'),
+                        child: Text('Details auto-detected. Please verify the product name and MRP above.'),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
@@ -250,7 +446,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         icon: _submittingProduct
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.upload_file_outlined),
-                        label: const Text('Submit for catalog review'),
+                        label: const Text('Save to community catalog'),
                       ),
                     ],
                   ),

@@ -5,6 +5,7 @@ import 'package:priceshield/app/navigation/main_navigation.dart';
 import 'package:priceshield/features/auth/presentation/screens/register_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:priceshield/features/deescalation/presentation/screens/deescalation_screen.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 
 class PriceShieldApp extends StatelessWidget {
@@ -22,6 +23,7 @@ class PriceShieldApp extends StatelessWidget {
         '/signin': (context) => const SignInScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const MainNavigation(),
+        '/deescalation': (context) => const DeescalationScreen(),
       },
     );
   }

@@ -249,7 +249,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Location could not be fetched. Enter the store address manually.'),
+          content: Text('Could not detect location. Please type the store address manually.'),
+          backgroundColor: Color(0xff1E293B),
         ));
       }
     }
@@ -259,7 +260,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   Future<void> submitComplaint() async {
     if (addressController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Add the store address before submitting the complaint.'),
+        content: Text('Please enter the store address before submitting.'),
+        backgroundColor: Color(0xff1E293B),
       ));
       return;
     }
@@ -273,7 +275,7 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
             );
 
       if (!priceShieldApi.isConfigured) {
-        throw const PriceShieldApiException('The PriceShield backend is not configured.');
+        throw const PriceShieldApiException('Service is temporarily unavailable. Please try again.');
       }
       await priceShieldApi.createComplaint(
             barcode: widget.barcode,
@@ -302,8 +304,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Complaint Submitted Successfully'),
+        const SnackBar(
+          content: Text('Complaint registered successfully!'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
@@ -317,8 +319,20 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => loading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+      final raw = e.toString()
+          .replaceAll('Bad state: ', '')
+          .replaceAll('Exception: ', '')
+          .replaceAll('StateError: ', '')
+          .trim();
+      final friendlyMsg = raw.isNotEmpty
+          ? raw
+          : 'Could not submit your complaint. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyMsg),
+          backgroundColor: const Color(0xffEF4444),
+        ),
+      );
     }
   }
 

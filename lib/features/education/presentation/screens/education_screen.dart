@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
+import 'package:priceshield/features/deescalation/presentation/screens/deescalation_screen.dart';
 
 class ConsumerEducationScreen extends StatelessWidget {
   const ConsumerEducationScreen({super.key});
@@ -47,6 +48,93 @@ class ConsumerEducationScreen extends StatelessWidget {
                   Text(
                     "Understanding consumer protection laws empowers you to fight unfair pricing and protect others.",
                     style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            /// ---------- DE-ESCALATION CO-PILOT BANNER ----------
+            AppCard(
+              color: const Color(0xff0b1320),
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xfff59e0b).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.gavel_rounded,
+                            color: Color(0xfff59e0b), size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          "De-escalation Co-Pilot",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xfff59e0b),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          "NEW",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Facing cooling charge disputes? Rule 18(2) specifies MRP includes refrigeration expenses. Use our Full-Screen Authoritative Law Card, 15-second audio voice-out, and 1-tap WhatsApp helpline (+91 8800001915).",
+                    style: TextStyle(
+                      color: Color(0xffc9d5e6),
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    height: 44,
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DeescalationScreen(),
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PriceShieldColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.shield_outlined, size: 18),
+                      label: const Text(
+                        "Open Law Showcard & Voice-Out",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ],
               ),

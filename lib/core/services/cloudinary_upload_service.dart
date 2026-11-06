@@ -44,8 +44,7 @@ class CloudinaryUploadService {
     final preset = (isVideo ? _videoPreset : _imagePreset).trim();
     if (cloudName.isEmpty || preset.isEmpty) {
       throw StateError(
-        'Cloudinary setup is incomplete. Configure the cloud name and '
-        '${isVideo ? 'video' : 'image'} upload preset.',
+        'Photo upload service is temporarily unavailable. Please try again later.',
       );
     }
 
@@ -53,7 +52,7 @@ class CloudinaryUploadService {
     final maxBytes = isVideo ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
     if (fileSize > maxBytes) {
       final limitMb = isVideo ? 25 : 10;
-      throw StateError('Choose a file smaller than $limitMb MB.');
+      throw StateError('Please choose a file smaller than $limitMb MB.');
     }
 
     final resourceType = isVideo ? 'video' : 'image';
@@ -68,7 +67,7 @@ class CloudinaryUploadService {
     final streamedResponse = await request.send().timeout(
           const Duration(minutes: 2),
           onTimeout: () => throw StateError(
-            'Cloudinary upload timed out. Check your internet and retry.',
+            'Upload took too long. Please check your internet connection and try again.',
           ),
         );
     final response = await http.Response.fromStream(streamedResponse);
@@ -77,7 +76,7 @@ class CloudinaryUploadService {
     try {
       payload = jsonDecode(response.body) as Map<String, dynamic>;
     } on FormatException {
-      throw StateError('Cloudinary returned an unreadable response.');
+      throw StateError('Could not process the uploaded file. Please try again.');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -85,13 +84,13 @@ class CloudinaryUploadService {
       final message = error is Map<String, dynamic>
           ? error['message']?.toString()
           : null;
-      throw StateError(message ?? 'Cloudinary upload failed. Please retry.');
+      throw StateError(message ?? 'Proof upload failed. Please try again.');
     }
 
     final secureUrl = payload['secure_url']?.toString();
     final publicId = payload['public_id']?.toString();
     if (secureUrl == null || publicId == null) {
-      throw StateError('Cloudinary upload response is missing file details.');
+      throw StateError('Could not save uploaded proof. Please try again.');
     }
 
     return CloudinaryUpload(

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:priceshield/core/data/default_products_catalog.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 
 class PriceShieldApiException implements Exception {
@@ -26,7 +27,9 @@ class PriceShieldApiException implements Exception {
 /// Release builds still require an explicit HTTPS configuration.
 class PriceShieldApiClient {
   PriceShieldApiClient({http.Client? client})
-    : _client = client ?? http.Client();
+      : _client = client ?? http.Client() {
+    _initProductCache();
+  }
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'PRICESHIELD_API_BASE_URL',
@@ -35,6 +38,13 @@ class PriceShieldApiClient {
   static const _timeout = Duration(seconds: 15);
 
   final http.Client _client;
+  final Map<String, Map<String, dynamic>> _productCache = {};
+
+  void _initProductCache() {
+    for (final entry in defaultIndianProductsCatalog.entries) {
+      _productCache[entry.key] = Map<String, dynamic>.from(entry.value);
+    }
+  }
 
   String get _baseUrl => _configuredBaseUrl.isNotEmpty
       ? _configuredBaseUrl
@@ -42,8 +52,41 @@ class PriceShieldApiClient {
 
   bool get isConfigured => _baseUrl.isNotEmpty;
 
-  Future<Map<String, dynamic>> getProduct(String barcode) =>
-      _requestMap('GET', '/products/${Uri.encodeComponent(barcode)}');
+  Map<String, dynamic>? getCachedProduct(String barcode) {
+    final clean = barcode.trim();
+    final cached = _productCache[clean];
+    return cached != null ? Map<String, dynamic>.from(cached) : null;
+  }
+
+  void cacheProduct(String barcode, Map<String, dynamic> product) {
+    final clean = barcode.trim();
+    if (clean.isNotEmpty) {
+      _productCache[clean] = Map<String, dynamic>.from(product);
+    }
+  }
+
+  void clearProductCache() {
+    _productCache.clear();
+  }
+
+  void resetProductCache() {
+    _productCache.clear();
+    _initProductCache();
+  }
+
+  Future<Map<String, dynamic>> getProduct(String barcode) async {
+    final clean = barcode.trim();
+    final cached = getCachedProduct(clean);
+    if (cached != null) return cached;
+
+    final result = await _requestMap(
+      'GET',
+      '/products/${Uri.encodeComponent(clean)}',
+      authenticated: false,
+    );
+    cacheProduct(clean, result);
+    return result;
+  }
 
   Future<void> logout() async {}
 
@@ -72,7 +115,7 @@ class PriceShieldApiClient {
       'productName': productName,
       'mrp': mrp,
       'chargedPrice': chargedPrice,
-      if (clientRequestId != null) 'clientRequestId': clientRequestId,
+      'clientRequestId': ?clientRequestId,
     },
   );
 
@@ -101,12 +144,12 @@ class PriceShieldApiClient {
       'chargedPrice': chargedPrice,
       'address': address,
       if (purchaseDate != null) 'purchaseDate': purchaseDate.toIso8601String(),
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
       if (evidence != null && evidence.isNotEmpty) 'evidence': evidence,
-      if (clientRequestId != null) 'clientRequestId': clientRequestId,
+      'clientRequestId': ?clientRequestId,
     },
   );
 
@@ -124,11 +167,11 @@ class PriceShieldApiClient {
       'barcode': barcode,
       if (productName != null && productName.trim().isNotEmpty)
         'productName': productName.trim(),
-      if (printedMrp != null) 'printedMrp': printedMrp,
+      'printedMrp': ?printedMrp,
       if (ocrText != null && ocrText.trim().isNotEmpty)
         'ocrText': ocrText.trim(),
-      if (frontImageUrl != null) 'frontImageUrl': frontImageUrl,
-      if (backImageUrl != null) 'backImageUrl': backImageUrl,
+      'frontImageUrl': ?frontImageUrl,
+      'backImageUrl': ?backImageUrl,
     },
   );
 
@@ -188,7 +231,7 @@ class PriceShieldApiClient {
   }) async {
     if (!isConfigured) {
       throw const PriceShieldApiException(
-        'The PriceShield backend is not configured.',
+        'PriceShield service is temporarily connecting. Please try again.',
       );
     }
     final baseUrl = _baseUrl.endsWith('/')
@@ -200,13 +243,13 @@ class PriceShieldApiClient {
         (baseUri.scheme != 'http' && baseUri.scheme != 'https') ||
         (baseUri.path.isNotEmpty && baseUri.path != '/')) {
       throw const PriceShieldApiException(
-        'The PriceShield backend URL must be an HTTP(S) server origin.',
+        'Server connection configuration is invalid.',
       );
     }
     final token = await AuthSession.refreshToken();
     if (authenticated && (token == null || token.isEmpty)) {
       throw const PriceShieldApiException(
-        'Please sign in again.',
+        'Session expired. Please sign in again.',
         statusCode: 401,
       );
     }
@@ -214,7 +257,7 @@ class PriceShieldApiClient {
     final uri = Uri.parse('$baseUrl/api/v1$path');
     final headers = <String, String>{
       'Accept': 'application/json',
-      if (authenticated) 'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
     };
     try {
@@ -229,27 +272,27 @@ class PriceShieldApiClient {
             ? error['message']?.toString()
             : null;
         throw PriceShieldApiException(
-          message ?? 'The server could not process this request.',
+          message ?? 'Unable to complete this request. Please try again.',
           statusCode: response.statusCode,
         );
       }
       if (decoded is! Map<String, dynamic> || !decoded.containsKey('data')) {
         throw const PriceShieldApiException(
-          'The server returned an invalid response.',
+          'Unable to process server response. Please try again.',
         );
       }
       return decoded['data'];
     } on TimeoutException {
       throw const PriceShieldApiException(
-        'The server did not respond. Please try again.',
+        'Connection timed out. Please check your internet connection.',
       );
     } on http.ClientException {
       throw const PriceShieldApiException(
-        'Could not reach the server. Check your connection.',
+        'Unable to connect to PriceShield. Please check your internet connection.',
       );
     } on FormatException {
       throw const PriceShieldApiException(
-        'The server returned an invalid response.',
+        'Unable to process server response. Please try again.',
       );
     }
   }

@@ -47,7 +47,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     finally { if (mounted) setState(() => _uploading = false); }
   }
 
-  void _message(String value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value),
+          backgroundColor: PriceShieldColors.navy,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {

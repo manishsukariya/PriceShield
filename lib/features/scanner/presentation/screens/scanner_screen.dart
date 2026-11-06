@@ -57,7 +57,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           MobileScanner(
             fit: BoxFit.cover,
             onDetect: _onDetect,
-            errorBuilder: (_, error, __) => Center(
+            errorBuilder: (_, error, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
@@ -69,7 +69,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             ),
           ),
           IgnorePointer(child: Center(child: Container(width: 270, height: 170, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), borderRadius: BorderRadius.circular(22))))),
-          Positioned(top: 24, left: 24, right: 24, child: Text('Place the barcode inside the frame', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, shadows: [Shadow(color: Colors.black.withOpacity(.7), blurRadius: 4)]))),
+          Positioned(top: 24, left: 24, right: 24, child: Text('Place the barcode inside the frame', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, shadows: [Shadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 4)]))),
           Positioned(bottom: 28, left: 24, right: 24, child: ElevatedButton.icon(onPressed: _openingProduct ? null : _enterBarcodeManually, icon: const Icon(Icons.keyboard_outlined), label: const Text('Enter barcode manually'), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black))),
         ],
       ),

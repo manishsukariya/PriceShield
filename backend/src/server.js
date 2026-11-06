@@ -11,6 +11,22 @@ const isManagedHost = env.NODE_ENV === 'production' || process.env.RENDER === 't
 const host = isManagedHost ? '0.0.0.0' : env.HOST;
 const server = app.listen(env.PORT, host, () => {
   console.log(`PriceShield API listening on http://${host}:${env.PORT}`);
+
+  // Free tier keep-alive: ping /health every 12 mins to prevent Render instance sleep
+  if (isManagedHost) {
+    const pingUrl = process.env.RENDER_EXTERNAL_URL
+      ? `${process.env.RENDER_EXTERNAL_URL}/health`
+      : 'https://priceshield-r4v5.onrender.com/health';
+    const intervalMs = 12 * 60 * 1000;
+    setInterval(async () => {
+      try {
+        await fetch(pingUrl);
+        console.log(`[KeepAlive] Pinged ${pingUrl}`);
+      } catch (e) {
+        console.warn(`[KeepAlive] Ping failed: ${e.message}`);
+      }
+    }, intervalMs);
+  }
 });
 
 async function shutdown(signal) {

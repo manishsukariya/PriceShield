@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -21,7 +22,37 @@ class WelcomeScreen extends StatelessWidget {
               const _WelcomePoint(icon: Icons.verified_outlined, text: 'Keep a clear record of every scan'),
               const _WelcomePoint(icon: Icons.shield_outlined, text: 'Report unfair charges securely'),
               const Spacer(),
-              SizedBox(width: double.infinity, height: 54, child: ElevatedButton(onPressed: () => Navigator.pushReplacementNamed(context, '/signin'), child: const Text('Get started'))),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/signin'),
+                  child: const Text('Get started / Sign In', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    AuthSession.continueAsGuest();
+                    Navigator.pushReplacementNamed(context, '/home');
+                  },
+                  icon: const Icon(Icons.bolt, color: PriceShieldColors.primary),
+                  label: const Text(
+                    '⚡ Instant Scan (Continue as Guest)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: PriceShieldColors.primary,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: PriceShieldColors.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
             ]),
           ),
         ),

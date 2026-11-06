@@ -35,6 +35,7 @@ class PriceShieldApiClient {
     'PRICESHIELD_API_BASE_URL',
   );
   static const _debugLocalBaseUrl = 'http://192.168.0.107:3000';
+  static const _defaultProductionBaseUrl = 'https://priceshield-r4v5.onrender.com';
   static const _timeout = Duration(seconds: 15);
 
   final http.Client _client;
@@ -46,9 +47,11 @@ class PriceShieldApiClient {
     }
   }
 
-  String get _baseUrl => _configuredBaseUrl.isNotEmpty
-      ? _configuredBaseUrl
-      : (kDebugMode ? _debugLocalBaseUrl : '');
+  String get _baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+    if (kDebugMode) return _debugLocalBaseUrl;
+    return _defaultProductionBaseUrl;
+  }
 
   bool get isConfigured => _baseUrl.isNotEmpty;
 
@@ -67,6 +70,19 @@ class PriceShieldApiClient {
 
   void clearProductCache() {
     _productCache.clear();
+  }
+
+  /// Fire-and-forget warm-up ping to wake up the Render backend container
+  /// as soon as the app is launched, completely avoiding 50s cold-start delays.
+  Future<void> warmUpBackend() async {
+    if (!isConfigured) return;
+    try {
+      await _client
+          .get(Uri.parse('$_baseUrl/health'))
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Warmup ping failures are non-blocking and silently ignored.
+    }
   }
 
   void resetProductCache() {

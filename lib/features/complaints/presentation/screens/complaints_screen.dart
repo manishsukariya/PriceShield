@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
@@ -16,7 +17,58 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   Future<void> _refresh() async => setState(() => _complaints = priceShieldApi.listComplaints(limit: 100));
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    if (!AuthSession.isSignedIn) {
+      return Scaffold(
+        backgroundColor: PriceShieldColors.background,
+        appBar: AppBar(title: const Text('Complaints')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: PriceShieldColors.mint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 40,
+                    color: PriceShieldColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Complaints History',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sign in to your PriceShield account to track and manage your formal grievances across devices.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: PriceShieldColors.muted, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/signin'),
+                    child: const Text('Sign In to View Complaints', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
         backgroundColor: PriceShieldColors.background,
         appBar: AppBar(title: const Text('Complaints')),
         body: FutureBuilder<List<Map<String, dynamic>>>(
@@ -47,6 +99,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
           },
         ),
       );
+  }
 
   String _status(Map<String, dynamic> item) => item['status']?.toString().toUpperCase() ?? 'PENDING';
 

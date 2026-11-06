@@ -17,10 +17,16 @@ class AuthUser {
 /// never written to disk or logs.
 class AuthSession {
   static final ValueNotifier<AuthUser?> currentUser = ValueNotifier(null);
+  static final ValueNotifier<bool> isGuest = ValueNotifier(false);
   static String? _token;
 
   static String? get token => _token;
   static bool get isSignedIn => _token != null && currentUser.value != null;
+  static bool get isGuestMode => isGuest.value && !isSignedIn;
+
+  static void continueAsGuest() {
+    isGuest.value = true;
+  }
 
   static Future<String?> refreshToken({bool forceRefresh = false}) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -37,6 +43,7 @@ class AuthSession {
     required Map<String, dynamic> user,
   }) async {
     _token = token;
+    isGuest.value = false;
     currentUser.value = AuthUser(user);
   }
 
@@ -47,6 +54,7 @@ class AuthSession {
 
   static Future<void> clear() async {
     _token = null;
+    isGuest.value = false;
     currentUser.value = null;
   }
 }

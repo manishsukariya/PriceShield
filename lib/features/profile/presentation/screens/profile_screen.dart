@@ -22,6 +22,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override void initState() { super.initState(); _refresh(); }
   Future<void> _refresh() async {
+    if (AuthSession.currentUser.value == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       final results = await Future.wait([priceShieldApi.getProfile(), priceShieldApi.listComplaints(limit: 100)]);
       final profile = results[0] as Map<String, dynamic>;
@@ -57,16 +61,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = AuthSession.currentUser.value;
-    final name = user?.displayName.isNotEmpty == true ? user!.displayName : 'User';
+    if (user == null) {
+      return Scaffold(
+        backgroundColor: PriceShieldColors.background,
+        appBar: AppBar(title: const Text('Profile')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 110),
+          children: [
+            Center(
+              child: Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: PriceShieldColors.mint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  size: 48,
+                  color: PriceShieldColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'Shield Scout (Guest Mode)',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Center(
+              child: Text(
+                'You can scan, verify MRP, and play law cards freely.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+            ),
+            const SizedBox(height: 32),
+            AppCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.stars_rounded, color: Colors.amber, size: 24),
+                      SizedBox(width: 10),
+                      Text(
+                        'Unlock Shield Scout Rewards',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Create an account to officially register complaints, sync scan history across devices, and earn +50 Scout points for community product additions.',
+                    style: TextStyle(color: PriceShieldColors.muted, fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pushNamed(context, '/signin'),
+                      child: const Text('Sign In or Register', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              tileColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              leading: const Icon(Icons.gavel_rounded, color: PriceShieldColors.primary),
+              title: const Text('Consumer Rights & Laws', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pushNamed(context, '/deescalation'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final name = user.displayName.isNotEmpty == true ? user.displayName : 'User';
     final initials = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
-    final image = _photoUrl ?? user?.photoUrl;
+    final image = _photoUrl ?? user.photoUrl;
     return Scaffold(
       backgroundColor: PriceShieldColors.background,
       appBar: AppBar(title: const Text('Profile')),
       body: RefreshIndicator(onRefresh: _refresh, child: ListView(padding: const EdgeInsets.fromLTRB(24, 28, 24, 110), children: [
         Center(child: InkWell(onTap: _uploading ? null : _uploadPhoto, borderRadius: BorderRadius.circular(60), child: CircleAvatar(radius: 54, backgroundColor: PriceShieldColors.primary, backgroundImage: image == null ? null : NetworkImage(image), child: _uploading ? const CircularProgressIndicator(color: Colors.white) : image == null ? Text(initials, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)) : null))),
         const SizedBox(height: 14), Center(child: Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-        const SizedBox(height: 4), Center(child: Text(user?.email ?? '', style: const TextStyle(color: Colors.black54))),
+        const SizedBox(height: 4), Center(child: Text(user.email, style: const TextStyle(color: Colors.black54))),
         const SizedBox(height: 24),
         AppCard(padding: const EdgeInsets.all(18), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_stat('Total', _total), _stat('Resolved', _resolved), _stat('Pending', _total - _resolved)])),
         const SizedBox(height: 20),

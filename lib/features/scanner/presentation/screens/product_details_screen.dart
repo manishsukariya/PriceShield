@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
@@ -97,6 +98,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       'name': _nameController.text.trim(),
       'mrp': mrp,
     });
+
+    if (!_isKnownProduct && AuthSession.isSignedIn) {
+      // Auto-submit to community catalog asynchronously (+50 Scout points)
+      priceShieldApi.createProductSubmission(
+        barcode: widget.barcode,
+        productName: _nameController.text.trim(),
+        printedMrp: mrp,
+        ocrText: _ocrText,
+      ).catchError((_) => <String, dynamic>{});
+    }
 
     final compliance = _complianceResult ?? PackagingComplianceService.analyze(_ocrText);
 
@@ -342,6 +353,33 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ],
                 ),
               ),
+              if (manualEntry) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffEFF6FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xffBFDBFE)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.stars_rounded, color: Color(0xff2563EB), size: 22),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Contribute to PriceShield Catalog: Verify and submit to earn +50 Shield Scout points!',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (_complianceResult != null && _complianceResult!.hasViolation) ...[
                 const SizedBox(height: 12),
                 AppCard(

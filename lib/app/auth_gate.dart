@@ -15,7 +15,15 @@ class AuthGate extends StatelessWidget {
         if (user != null) {
           return const MainNavigation();
         }
-        return const WelcomeScreen();
+        return ValueListenableBuilder<bool>(
+          valueListenable: AuthSession.isGuest,
+          builder: (context, isGuest, _) {
+            if (isGuest) {
+              return const MainNavigation();
+            }
+            return const WelcomeScreen();
+          },
+        );
       },
     );
   }

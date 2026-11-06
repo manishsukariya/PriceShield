@@ -33,7 +33,7 @@ const createComplaint = z.object({
 
 export function complaintRoutes({ authenticate, prisma }) {
   const router = Router();
-  router.use(authenticate);
+  router.use('/complaints', authenticate);
 
   router.post('/complaints', validate(createComplaint), async (request, response, next) => {
     try {

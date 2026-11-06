@@ -14,7 +14,7 @@ const createScan = z.object({
 
 export function scanRoutes({ authenticate, prisma }) {
   const router = Router();
-  router.use(authenticate);
+  router.use('/scans', authenticate);
   router.post('/scans', validate(createScan), async (request, response, next) => {
     try {
       const { mrp, chargedPrice, clientRequestId, ...data } = request.body;
@@ -25,8 +25,15 @@ export function scanRoutes({ authenticate, prisma }) {
         if (existing) return response.status(200).json({ data: existing });
       }
       const overcharge = Math.max(0, chargedPrice - mrp);
+      let productId = null;
+      try {
+        const matchedProduct = await prisma.product.findUnique({ where: { barcode: data.barcode } });
+        if (matchedProduct) productId = matchedProduct.id;
+      } catch {
+        // Safe fallback
+      }
       const scan = await prisma.scan.create({
-        data: { ...data, mrp, chargedPrice, overcharge, clientRequestId, status: overcharge > 0 ? 'OVERCHARGED' : 'WITHIN_MRP', userId: request.user.id },
+        data: { ...data, productId, mrp, chargedPrice, overcharge, clientRequestId, status: overcharge > 0 ? 'OVERCHARGED' : 'WITHIN_MRP', userId: request.user.id },
       });
       response.status(201).json({ data: scan });
     } catch (error) {

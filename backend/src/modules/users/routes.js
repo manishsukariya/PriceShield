@@ -10,7 +10,7 @@ const updateProfile = z.object({
 
 export function userRoutes({ authenticate, prisma }) {
   const router = Router();
-  router.use(authenticate);
+  router.use('/me', authenticate);
   router.get('/me', (request, response) => {
     const { passwordHash: _passwordHash, ...user } = request.user;
     response.json({ data: user });

@@ -17,7 +17,7 @@ const submission = z.object({
 
 export function productSubmissionRoutes({ authenticate, prisma }) {
   const router = Router();
-  router.use(authenticate);
+  router.use('/product-submissions', authenticate);
   router.post('/product-submissions', validate(submission), async (request, response, next) => {
     try {
       const item = await prisma.productSubmission.create({

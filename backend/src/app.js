@@ -4,15 +4,16 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { getEnv } from './config/env.js';
 import { prisma } from './config/prisma.js';
-import { authenticate as createAuthenticate } from './middleware/authenticate.js';
+import { authenticate as createAuthenticate, authenticateOptional as createAuthenticateOptional } from './middleware/authenticate.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 import { apiRoutes } from './routes/index.js';
 import { createFirebaseTokenVerifier } from './config/firebase-admin.js';
 
-export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken } = {}) {
+export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, fetchFn } = {}) {
   const app = express();
   const tokenVerifier = verifyToken ?? createFirebaseTokenVerifier(env);
   const authenticate = createAuthenticate(tokenVerifier, prismaClient);
+  const authenticateOptional = createAuthenticateOptional(tokenVerifier, prismaClient);
 
   app.disable('x-powered-by');
   app.use(pinoHttp({ redact: ['req.headers.authorization'] }));
@@ -31,7 +32,7 @@ export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken }
   // orchestration and local network checks can distinguish an alive API from
   // a ready database-backed API at /api/v1/health.
   app.get('/health', (_request, response) => response.status(200).json({ status: 'ok' }));
-  app.use('/api/v1', apiRoutes({ prisma: prismaClient, authenticate, env }));
+  app.use('/api/v1', apiRoutes({ prisma: prismaClient, authenticate, authenticateOptional, env, fetchFn }));
   app.use(notFound);
   app.use(errorHandler);
   return app;

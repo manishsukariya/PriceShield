@@ -44,3 +44,32 @@ export function authenticate(verifyToken, prismaClient) {
     }
   };
 }
+
+export function authenticateOptional(verifyToken, prismaClient) {
+  return async (request, _response, next) => {
+    const [scheme, token] = request.get('authorization')?.split(' ') ?? [];
+    if (scheme !== 'Bearer' || !token) {
+      request.user = null;
+      return next();
+    }
+
+    try {
+      const decoded = await verifyToken(token);
+      if (decoded?.uid && decoded.email && decoded.email_verified === true) {
+        let user = await prismaClient.user.findUnique({ where: { firebaseUid: decoded.uid } });
+        if (!user) {
+          const byEmail = await prismaClient.user.findUnique({ where: { email: decoded.email.toLowerCase() } });
+          if (!byEmail?.firebaseUid || byEmail.firebaseUid === decoded.uid) {
+            user = byEmail
+              ? await prismaClient.user.update({ where: { id: byEmail.id }, data: { firebaseUid: decoded.uid, emailVerifiedAt: new Date() } })
+              : await prismaClient.user.create({ data: { firebaseUid: decoded.uid, email: decoded.email.toLowerCase(), emailVerifiedAt: new Date(), displayName: decoded.name ?? null, passwordHash: null } });
+          }
+        }
+        request.user = user ?? null;
+      }
+    } catch {
+      request.user = null;
+    }
+    return next();
+  };
+}

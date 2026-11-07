@@ -17,6 +17,8 @@ class ScanResultScreen extends StatefulWidget {
     required this.mrp,
     required this.charged,
     this.complianceResult,
+    this.venueType = 'RETAIL',
+    this.isStickerFlagged = false,
   });
 
   final String name;
@@ -24,6 +26,8 @@ class ScanResultScreen extends StatefulWidget {
   final num mrp;
   final num charged;
   final PackagingComplianceResult? complianceResult;
+  final String venueType;
+  final bool isStickerFlagged;
 
   @override
   State<ScanResultScreen> createState() => _ScanResultScreenState();
@@ -155,6 +159,47 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               ),
             ),
           ),
+
+          // Dine-in Venue Context Alert Card (SC FHRAI 2017)
+          if (widget.venueType == 'RESTAURANT') ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xffFFFBEB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xffF59E0B), width: 1.2),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.restaurant_rounded, color: Color(0xffB45309), size: 22),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'DINE-IN VENUE CONTEXT (SC FHRAI 2017)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: Color(0xffB45309),
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Under the 2017 Supreme Court judgment, seated restaurants providing table service & ambiance are not restricted to printed MRP. However, if this was an over-the-counter takeaway or retail stall, MRP strictly applies.',
+                          style: TextStyle(fontSize: 12, color: Color(0xff78350F), height: 1.35),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Primary Price Status Card
           AppCard(
@@ -453,7 +498,226 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                 label: const Text('File a formal complaint'),
               ),
             ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: () => _openStealthSafeExitSheet(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xff4338CA),
+                  side: const BorderSide(color: Color(0xffA5B4FC), width: 1.5),
+                  backgroundColor: const Color(0xffEEF2FF),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.security_rounded, color: Color(0xff4F46E5)),
+                label: const Text(
+                  '🛡️ Stealth Safe-Exit ("Lado Mat, Baad Me Ghero")',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+              ),
+            ),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _openStealthSafeExitSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffEEF2FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xffC7D2FE)),
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: Color(0xff4F46E5), size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Stealth Safe-Exit Mode',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xff1E1B4B),
+                          ),
+                        ),
+                        Text(
+                          '“Lado Mat, Baad Me Ghero” • Safety #1',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff4338CA),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFEF3C7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xffFCD34D)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Color(0xffB45309), size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Never risk your safety arguing with hostile or aggressive shopkeepers. Follow this 3-step silent evidence playbook to hold them legally accountable safely.',
+                        style: TextStyle(fontSize: 12, color: Color(0xff78350F), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              _buildStealthStep(
+                stepNum: '1',
+                title: 'Pay Digitally via UPI & Keep Digital Proof',
+                desc:
+                    'Pay the requested amount quietly via UPI (GPay/PhonePe/Paytm). The UPI transaction ID records the merchant’s registered business name, VPA, and timestamp.',
+                icon: Icons.qr_code_scanner_rounded,
+              ),
+              const SizedBox(height: 12),
+              _buildStealthStep(
+                stepNum: '2',
+                title: 'Leave Calmly Without Argument',
+                desc:
+                    'Take your item and leave the counter quietly. Your safety is paramount; never escalate at an isolated or crowded shop.',
+                icon: Icons.directions_walk_rounded,
+              ),
+              const SizedBox(height: 12),
+              _buildStealthStep(
+                stepNum: '3',
+                title: 'File Formal Complaint from Home',
+                desc:
+                    'Submit the transaction evidence directly to the National Consumer Helpline (NCH 1915) or state Legal Metrology Department from the safety of home.',
+                icon: Icons.assignment_turned_in_rounded,
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ComplaintScreen(
+                          name: widget.name,
+                          barcode: widget.barcode,
+                          mrp: widget.mrp,
+                          charged: widget.charged,
+                          initialNotes:
+                              'Silent evidence report filed via PriceShield Stealth Safe-Exit Mode. Charged ₹${widget.charged} against printed MRP ₹${widget.mrp} (Overcharge: ₹${(widget.charged - widget.mrp).toStringAsFixed(2)}). Merchant UPI proof attached.',
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff4F46E5),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.file_upload_outlined),
+                  label: const Text('Save Evidence & File Complaint from Home', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Close / I Am Safe Now', style: TextStyle(color: PriceShieldColors.muted)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStealthStep({
+    required String stepNum,
+    required String title,
+    required String desc,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE2E8F0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: const Color(0xffEEF2FF),
+            child: Text(
+              stepNum,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff4F46E5)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xff1E293B)),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  desc,
+                  style: const TextStyle(fontSize: 12, color: Color(0xff64748B), height: 1.3),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

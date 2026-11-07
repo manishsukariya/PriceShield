@@ -162,6 +162,29 @@ void main() {
       });
     });
 
+    group('Sticker / Tampered MRP detection', () {
+      test('flags "sticker price" and "tampered mrp"', () {
+        final r1 = PackagingComplianceService.analyze('Beverage can\nSticker Price: Rs 50\nBatch 101');
+        expect(r1.hasViolation, isTrue);
+        expect(r1.violationType, PackagingViolationType.stickerTampering);
+        expect(r1.title, contains('Sticker Overwrite'));
+        expect(r1.legalAdvice, contains('Rule 18(2)'));
+
+        final r2 = PackagingComplianceService.analyze('Item with TAMPERED MRP tag');
+        expect(r2.hasViolation, isTrue);
+        expect(r2.violationType, PackagingViolationType.stickerTampering);
+      });
+
+      test('PackagingComplianceResult.stickerTampered constant creates valid violation', () {
+        const result = PackagingComplianceResult.stickerTampered;
+        expect(result.hasViolation, isTrue);
+        expect(result.violationType, PackagingViolationType.stickerTampering);
+        expect(result.title, contains('Sticker Overwrite'));
+        expect(result.legalAdvice, contains('Rule 18(2)'));
+        expect(result.legalAdvice, contains('25,000'));
+      });
+    });
+
     test('maintains value equality and toString integrity', () {
       final r1 = PackagingComplianceService.analyze('Not for loose sale');
       final r2 = PackagingComplianceService.analyze('Not for loose sale');
@@ -305,6 +328,63 @@ void main() {
       // Escalation buttons are accessible
       expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsOneWidget);
       expect(find.text('Export Official Grievance Docket'), findsOneWidget);
+    });
+
+    testWidgets('renders Dine-in Venue Context warning when venueType is RESTAURANT',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ScanResultScreen(
+            name: 'Thums Up 300ml Glass',
+            barcode: '8901764012234',
+            mrp: 20.00,
+            charged: 45.00,
+            venueType: 'RESTAURANT',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('DINE-IN VENUE CONTEXT (SC FHRAI 2017)'), findsOneWidget);
+      expect(find.textContaining('seated restaurants providing table service'), findsOneWidget);
+    });
+
+    testWidgets('renders Stealth Safe-Exit button and opens bottom sheet on tap',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ScanResultScreen(
+            name: 'Amul Taaza Milk 500ml',
+            barcode: '8901262010054',
+            mrp: 27.00,
+            charged: 32.00,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Find and tap Stealth Safe-Exit button
+      final stealthBtn = find.text('🛡️ Stealth Safe-Exit ("Lado Mat, Baad Me Ghero")');
+      expect(stealthBtn, findsOneWidget);
+
+      await tester.tap(stealthBtn);
+      await tester.pumpAndSettle();
+
+      // Verify bottom sheet modal opened
+      expect(find.text('Stealth Safe-Exit Mode'), findsOneWidget);
+      expect(find.text('“Lado Mat, Baad Me Ghero” • Safety #1'), findsOneWidget);
+      expect(find.text('Pay Digitally via UPI & Keep Digital Proof'), findsOneWidget);
+      expect(find.text('Leave Calmly Without Argument'), findsOneWidget);
+      expect(find.text('File Formal Complaint from Home'), findsOneWidget);
+      expect(find.text('Save Evidence & File Complaint from Home'), findsOneWidget);
     });
   });
 }

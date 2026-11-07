@@ -215,3 +215,4 @@ class Gs1IndiaBrandResolver {
     return null;
   }
 }
+

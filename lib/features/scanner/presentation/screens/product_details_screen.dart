@@ -37,6 +37,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   PackagingComplianceResult? _complianceResult;
   bool _readingPackage = false;
   bool _submittingProduct = false;
+  bool _isStickerFlagged = false;
+  String _venueType = 'RETAIL';
+  num? _catalogBaseMrp;
 
   @override
   void initState() {
@@ -45,6 +48,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (cached != null) {
       _nameController.text = cached['name']?.toString() ?? '';
       final mrp = num.tryParse(cached['mrp']?.toString() ?? '');
+      _catalogBaseMrp = mrp;
       _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
@@ -67,6 +71,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final product = await priceShieldApi.getProduct(widget.barcode);
       _nameController.text = product['name']?.toString() ?? '';
       final mrp = num.tryParse(product['mrp']?.toString() ?? '');
+      _catalogBaseMrp = mrp;
       _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
@@ -129,7 +134,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       ).catchError((_) => <String, dynamic>{});
     }
 
-    final compliance = _complianceResult ?? PackagingComplianceService.analyze(_ocrText);
+    PackagingComplianceResult compliance =
+        _complianceResult ?? PackagingComplianceService.analyze(_ocrText);
+    if (_isStickerFlagged && !compliance.hasViolation) {
+      compliance = PackagingComplianceResult.stickerTampered;
+    }
 
     Navigator.pushReplacement(
       context,
@@ -140,6 +149,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           mrp: mrp,
           charged: charged,
           complianceResult: compliance.hasViolation ? compliance : null,
+          venueType: _venueType,
+          isStickerFlagged: _isStickerFlagged,
         ),
       ),
     );
@@ -513,6 +524,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                 ],
               ),
+              if (_catalogBaseMrp != null &&
+                  num.tryParse(_mrpController.text.trim()) != null &&
+                  num.parse(_mrpController.text.trim()) < _catalogBaseMrp!) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffFFF7ED),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffFDBA74)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.inventory_2_outlined, color: Color(0xffEA580C), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '📦 Batch-Bound MRP (Rule 18(2)): Catalog standard is ₹$_catalogBaseMrp, but this unit has printed ₹${_mrpController.text.trim()}. Retailer cannot charge revised rates on old batch stock.',
+                          style: const TextStyle(fontSize: 11, color: Color(0xff9A3412), height: 1.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               TextFormField(
                 controller: _chargedPriceController,
@@ -563,6 +600,184 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       labelStyle: const TextStyle(color: Color(0xffB91C1C), fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
+                ),
+              ],
+              // Sticker Overwrite / Tampered MRP Toggle
+              InkWell(
+                onTap: () => setState(() => _isStickerFlagged = !_isStickerFlagged),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _isStickerFlagged ? const Color(0xffFEF2F2) : const Color(0xffF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isStickerFlagged ? const Color(0xffEF4444) : const Color(0xffE2E8F0),
+                      width: _isStickerFlagged ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isStickerFlagged ? Icons.check_circle_rounded : Icons.label_off_outlined,
+                        color: _isStickerFlagged ? const Color(0xffDC2626) : const Color(0xff64748B),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🏷️ Sticker / Tampered MRP Tag?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: _isStickerFlagged ? const Color(0xff991B1B) : const Color(0xff334155),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isStickerFlagged
+                                  ? 'Flagged: Rule 18(2) strictly prohibits altering or pasting stickers over printed MRP.'
+                                  : 'Tap if shop placed a price sticker or marker over original MRP',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _isStickerFlagged ? const Color(0xffB91C1C) : const Color(0xff64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: _isStickerFlagged,
+                        onChanged: (val) => setState(() => _isStickerFlagged = val),
+                        activeColor: const Color(0xffDC2626),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Purchase Venue Context Selector
+              const SizedBox(height: 18),
+              const Text(
+                'Purchase Venue Context',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: PriceShieldColors.navy,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _venueType = 'RETAIL'),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _venueType == 'RETAIL' ? PriceShieldColors.mint : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _venueType == 'RETAIL' ? PriceShieldColors.primary : const Color(0xffE2E8F0),
+                            width: _venueType == 'RETAIL' ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.storefront_rounded,
+                              color: _venueType == 'RETAIL' ? PriceShieldColors.primary : const Color(0xff64748B),
+                              size: 20,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🏪 Retail Shop / Kirana',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _venueType == 'RETAIL' ? PriceShieldColors.navy : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Strict MRP Applicable',
+                              style: TextStyle(fontSize: 10, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _venueType = 'RESTAURANT'),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _venueType == 'RESTAURANT' ? const Color(0xffFFFBEB) : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _venueType == 'RESTAURANT' ? const Color(0xffF59E0B) : const Color(0xffE2E8F0),
+                            width: _venueType == 'RESTAURANT' ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.restaurant_rounded,
+                              color: _venueType == 'RESTAURANT' ? const Color(0xffB45309) : const Color(0xff64748B),
+                              size: 20,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🍽️ Dine-in Cafe / Hotel',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _venueType == 'RESTAURANT' ? const Color(0xff78350F) : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'SC FHRAI 2017 Ruling',
+                              style: TextStyle(fontSize: 10, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_venueType == 'RESTAURANT') ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffFDE68A)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: Color(0xffD97706), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '⚖️ Supreme Court Ruling (FHRAI 2017): Seated restaurants providing table service & ambiance may legally charge above MRP. Over-the-counter takeaways, railway stalls, and kiranas cannot.',
+                          style: TextStyle(fontSize: 11, color: Color(0xff92400E), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
               if (manualEntry) ...[

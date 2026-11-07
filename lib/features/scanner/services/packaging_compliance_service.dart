@@ -7,6 +7,7 @@ enum PackagingViolationType {
   freebie,
   outerPackMrp,
   promotionalDiscount,
+  stickerTampering,
 }
 
 /// Structured outcome of a packaging compliance evaluation.
@@ -46,6 +47,18 @@ class PackagingComplianceResult {
     title: 'Packaging Compliant',
     description: 'No packaging violations, loose pack splitting, or bundle anomalies detected.',
     legalAdvice: 'Package declarations conform to standard Legal Metrology guidelines.',
+  );
+
+  /// Convenient helper for manually flagged or detected sticker tampering.
+  static const PackagingComplianceResult stickerTampered = PackagingComplianceResult(
+    hasViolation: true,
+    violationType: PackagingViolationType.stickerTampering,
+    title: 'Sticker Overwrite / Price Tampering Alert',
+    description:
+        'This package has an altered price sticker or overwritten tag. The manufacturer\'s printed base price is the only legal MRP.',
+    legalAdvice:
+        'Under Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+    matchedSnippet: 'Price Sticker Overwrite',
   );
 
   @override
@@ -136,6 +149,28 @@ class PackagingComplianceService {
     RegExp(r'(?:mrp|price)\s*on\s*outer\s*(?:pack|carton)', caseSensitive: false),
     RegExp(r'refer\s*outer\s*(?:pack|carton)', caseSensitive: false),
     RegExp(r'for\s*(?:mrp|price)\s*see\s*outer\s*(?:pack|carton)', caseSensitive: false),
+  ];
+
+  static final List<String> _stickerPhrases = [
+    'our price',
+    'store price',
+    'special price',
+    'mrp sticker',
+    'price sticker',
+    'revised price',
+    'new price',
+    'sticker price',
+    'tampered mrp',
+    'tampered price',
+    're-labeled',
+    're-labelled',
+  ];
+
+  static final List<RegExp> _fuzzyStickerPatterns = [
+    RegExp(r'(?:our|store|special|shop|sticker|revised|tampered)\s*(?:mrp|price)', caseSensitive: false),
+    RegExp(r'new\s*mrp\s*sticker', caseSensitive: false),
+    RegExp(r'tampered\s*(?:mrp|price|tag)', caseSensitive: false),
+    RegExp(r'sticker\s*over\s*(?:mrp|price)', caseSensitive: false),
   ];
 
   static final RegExp _promotionalDiscountRegex = RegExp(
@@ -250,7 +285,40 @@ class PackagingComplianceService {
       }
     }
 
-    // 4. Check for Promotional Discount / Extra Volume regex
+    // 4. Check for Sticker Overwrite / Tampered Price
+    for (final phrase in _stickerPhrases) {
+      if (normalized.contains(phrase)) {
+        final snippet = _findExactSnippet(ocrText, phrase) ?? phrase;
+        return PackagingComplianceResult(
+          hasViolation: true,
+          violationType: PackagingViolationType.stickerTampering,
+          title: 'Sticker Overwrite / Price Tampering Alert',
+          description:
+              'Package shows retailer price label or overwritten tag ("$snippet"). The printed base price is the only legal MRP.',
+          legalAdvice:
+              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+          matchedSnippet: snippet,
+        );
+      }
+    }
+    for (final pattern in _fuzzyStickerPatterns) {
+      final match = pattern.firstMatch(ocrText);
+      if (match != null) {
+        final snippet = match.group(0)!;
+        return PackagingComplianceResult(
+          hasViolation: true,
+          violationType: PackagingViolationType.stickerTampering,
+          title: 'Sticker Overwrite / Price Tampering Alert',
+          description:
+              'Package shows retailer price label or overwritten tag ("$snippet"). The printed base price is the only legal MRP.',
+          legalAdvice:
+              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+          matchedSnippet: snippet,
+        );
+      }
+    }
+
+    // 5. Check for Promotional Discount / Extra Volume regex
     final promoMatch = _promotionalDiscountRegex.firstMatch(ocrText);
     if (promoMatch != null) {
       final snippet = promoMatch.group(0)!;

@@ -19,6 +19,7 @@ class ComplaintScreen extends StatefulWidget {
   final String barcode;
   final num mrp;
   final num charged;
+  final String? initialNotes;
 
   const ComplaintScreen({
     super.key,
@@ -26,6 +27,7 @@ class ComplaintScreen extends StatefulWidget {
     required this.barcode,
     required this.mrp,
     required this.charged,
+    this.initialNotes,
   });
 
   @override
@@ -55,6 +57,9 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialNotes != null && widget.initialNotes!.isNotEmpty) {
+      descController.text = widget.initialNotes!;
+    }
   }
 
   @override

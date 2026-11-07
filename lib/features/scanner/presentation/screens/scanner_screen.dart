@@ -10,7 +10,14 @@ class ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
+  final MobileScannerController _scannerController = MobileScannerController();
   bool _openingProduct = false;
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_openingProduct) return;
@@ -50,11 +57,28 @@ class _ScannerScreenState extends State<ScannerScreen> {
         foregroundColor: Colors.white,
         title: const Text('Scan product'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Flashlight / Torch',
+            icon: ValueListenableBuilder<MobileScannerState>(
+              valueListenable: _scannerController,
+              builder: (context, state, child) {
+                final isOn = state.torchState == TorchState.on;
+                return Icon(
+                  isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                  color: isOn ? Colors.amber : Colors.white,
+                );
+              },
+            ),
+            onPressed: () => _scannerController.toggleTorch(),
+          ),
+        ],
       ),
       body: Stack(
         fit: StackFit.expand,
         children: [
           MobileScanner(
+            controller: _scannerController,
             fit: BoxFit.cover,
             onDetect: _onDetect,
             errorBuilder: (_, error, _) => Center(

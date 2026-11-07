@@ -875,4 +875,116 @@ const Map<String, Map<String, dynamic>> defaultIndianProductsCatalog = {
     'name': "Parle Mango Bite Candy 289g Pack",
     'mrp': 60.00,
   },
+
+  // ── TOP REGIONAL FMCG & OVERCHARGED STAPLES (0ms Offline Lookups) ──
+  '8908001150013': {
+    'barcode': '8908001150013',
+    'name': "IRCTC Rail Neer Packaged Drinking Water 1L",
+    'mrp': 15.00,
+  },
+  '8908001150037': {
+    'barcode': '8908001150037',
+    'name': "IRCTC Rail Neer Packaged Drinking Water 500ml",
+    'mrp': 10.00,
+  },
+  '8901023000018': {
+    'barcode': '8901023000018',
+    'name': "Bisleri Packaged Drinking Water With Minerals 1L",
+    'mrp': 20.00,
+  },
+  '8901023000025': {
+    'barcode': '8901023000025',
+    'name': "Bisleri Packaged Drinking Water 500ml",
+    'mrp': 10.00,
+  },
+  '8901023000032': {
+    'barcode': '8901023000032',
+    'name': "Bisleri Packaged Drinking Water 250ml",
+    'mrp': 6.00,
+  },
+  '8901023000049': {
+    'barcode': '8901023000049',
+    'name': "Bisleri Packaged Drinking Water 2L",
+    'mrp': 30.00,
+  },
+  '8906010010012': {
+    'barcode': '8906010010012',
+    'name': "KMF Nandini Pasteurized Toned Milk 500ml",
+    'mrp': 24.00,
+  },
+  '8906010010029': {
+    'barcode': '8906010010029',
+    'name': "KMF Nandini Special Full Cream Milk 500ml",
+    'mrp': 26.00,
+  },
+  '8906010010036': {
+    'barcode': '8906010010036',
+    'name': "KMF Nandini Standardised Milk 1L",
+    'mrp': 52.00,
+  },
+  '8906010010043': {
+    'barcode': '8906010010043',
+    'name': "KMF Nandini Fresh Curd Pouch 500g",
+    'mrp': 26.00,
+  },
+  '8908005110011': {
+    'barcode': '8908005110011',
+    'name': "Saras Taaza Pasteurized Toned Milk 500ml",
+    'mrp': 25.00,
+  },
+  '8908005110028': {
+    'barcode': '8908005110028',
+    'name': "Saras Gold Full Cream Fresh Milk 500ml",
+    'mrp': 33.00,
+  },
+  '8908006120019': {
+    'barcode': '8908006120019',
+    'name': "Verka Standard Pasteurized Milk 500ml",
+    'mrp': 30.00,
+  },
+  '8908006120026': {
+    'barcode': '8908006120026',
+    'name': "Verka Toned Fresh Milk 500ml",
+    'mrp': 26.00,
+  },
+  '8908007130017': {
+    'barcode': '8908007130017',
+    'name': "Gokul Special Cow Milk 500ml",
+    'mrp': 27.00,
+  },
+  '8908007130024': {
+    'barcode': '8908007130024',
+    'name': "Gokul Full Cream Buffalo Milk 500ml",
+    'mrp': 34.00,
+  },
+  '8908010140014': {
+    'barcode': '8908010140014',
+    'name': "Sudha Smart Toned Milk 500ml",
+    'mrp': 23.00,
+  },
+  '8908010140021': {
+    'barcode': '8908010140021',
+    'name': "Sudha Gold Full Cream Milk 500ml",
+    'mrp': 30.00,
+  },
+  '8906001010015': {
+    'barcode': '8906001010015',
+    'name': "Balaji Wafers Simply Salted Potato Chips 35g",
+    'mrp': 10.00,
+  },
+  '8906001010022': {
+    'barcode': '8906001010022',
+    'name': "Balaji Masala Wafers Potato Chips 65g",
+    'mrp': 20.00,
+  },
+  '8906020010018': {
+    'barcode': '8906020010018',
+    'name': "Yellow Diamond Masala Wheels 25g",
+    'mrp': 10.00,
+  },
+  '8906014010018': {
+    'barcode': '8906014010018',
+    'name': "Crax Corn Rings Tangy Tomato 38g",
+    'mrp': 10.00,
+  },
 };

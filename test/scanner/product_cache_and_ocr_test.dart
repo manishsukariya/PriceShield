@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 
 void main() {
@@ -172,6 +173,73 @@ void main() {
     test('returns null for invalid strings safely without throwing', () {
       expect(num.tryParse('invalid'), isNull);
       expect(num.tryParse(''), isNull);
+    });
+  });
+
+  group('Regional FMCG Staples in 0ms Offline Catalog', () {
+    test('contains Indian railway & regional dairy staples for 0ms offline lookups', () {
+      final client = PriceShieldApiClient();
+
+      // Rail Neer 1L (Railway staple)
+      final railNeer = client.getCachedProduct('8908001150013');
+      expect(railNeer, isNotNull);
+      expect(railNeer!['name'], contains('Rail Neer'));
+      expect(railNeer['mrp'], 15.00);
+
+      // Bisleri 1L
+      final bisleri = client.getCachedProduct('8901023000018');
+      expect(bisleri, isNotNull);
+      expect(bisleri!['mrp'], 20.00);
+
+      // Nandini Toned Milk 500ml (Karnataka)
+      final nandini = client.getCachedProduct('8906010010012');
+      expect(nandini, isNotNull);
+      expect(nandini!['name'], contains('Nandini'));
+      expect(nandini['mrp'], 24.00);
+
+      // Saras Milk 500ml (Rajasthan)
+      final saras = client.getCachedProduct('8908005110011');
+      expect(saras, isNotNull);
+      expect(saras!['mrp'], 25.00);
+
+      // Balaji Wafers (Gujarat & Western India)
+      final balaji = client.getCachedProduct('8906001010015');
+      expect(balaji, isNotNull);
+      expect(balaji!['mrp'], 10.00);
+    });
+  });
+
+  group('Gs1IndiaBrandResolver Unit Tests', () {
+    test('resolves regional and national brands from Indian 890 barcode prefix', () {
+      // Nandini KMF
+      final nandini = Gs1IndiaBrandResolver.resolve('8906010999999');
+      expect(nandini, isNotNull);
+      expect(nandini!.brandName, contains('Nandini'));
+
+      // Saras Dairy
+      final saras = Gs1IndiaBrandResolver.resolve('8908005123456');
+      expect(saras, isNotNull);
+      expect(saras!.brandName, contains('Saras'));
+
+      // Verka Dairy
+      final verka = Gs1IndiaBrandResolver.resolve('8908006123456');
+      expect(verka, isNotNull);
+      expect(verka!.brandName, contains('Verka'));
+
+      // Rail Neer IRCTC
+      final railNeer = Gs1IndiaBrandResolver.resolve('8908001999999');
+      expect(railNeer, isNotNull);
+      expect(railNeer!.brandName, contains('Rail Neer'));
+
+      // Balaji Wafers
+      final balaji = Gs1IndiaBrandResolver.resolve('8906001999999');
+      expect(balaji, isNotNull);
+      expect(balaji!.brandName, contains('Balaji'));
+
+      // Non-Indian or non-GS1 barcode returns null
+      expect(Gs1IndiaBrandResolver.resolve('012345678905'), isNull);
+      expect(Gs1IndiaBrandResolver.resolve(''), isNull);
+      expect(Gs1IndiaBrandResolver.resolve(null), isNull);
     });
   });
 }

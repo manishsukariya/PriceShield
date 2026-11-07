@@ -5,6 +5,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
+import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
@@ -29,6 +30,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _loading = true;
   bool _isKnownProduct = false;
   String? _loadError;
+  Gs1BrandInfo? _detectedBrandInfo;
   File? _frontImage;
   File? _backImage;
   String _ocrText = '';
@@ -69,8 +71,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
       _loadError = null;
+
+      if (_nameController.text.trim().isEmpty) {
+        final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
+        if (brand != null) {
+          _detectedBrandInfo = brand;
+          _nameController.text = '${brand.brandName} (${brand.category})';
+        }
+      }
     } on PriceShieldApiException catch (e) {
       _isKnownProduct = false;
+      final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
+      if (brand != null) {
+        _detectedBrandInfo = brand;
+        _nameController.text = '${brand.brandName} (${brand.category})';
+      }
       if (e.statusCode == 404) {
         // Product not found in local catalog or OFF fallback.
         // Ready for instant on-device OCR / manual input without noisy error banner.
@@ -80,6 +95,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       }
     } catch (_) {
       _isKnownProduct = false;
+      final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
+      if (brand != null) {
+        _detectedBrandInfo = brand;
+        _nameController.text = '${brand.brandName} (${brand.category})';
+      }
       _loadError = 'Could not reach server. You can enter details manually.';
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -139,6 +159,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     await _readPackageText(image);
   }
 
+  num? _extractMrpFromOcr(String text) {
+    // 1. Standard OCR match:
+    final match = RegExp(
+      r'(?:(?:M\.?\s*R\.?\s*P\.?|MAX(?:IMUM)?\.?\s*RETAIL\s*PRICE)(?:\s*\([^)]*\))?|INCL\.?\s*OF\s*ALL\s*TAXES|Rs\.?|INR|₹)\s*[:\.\-]?\s*(?:Rs\.?|INR|₹)?\s*(\d+(?:\.\d{1,2})?)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (match != null) {
+      return num.tryParse(match.group(1)!);
+    }
+
+    // 2. Chilled bottle / condensation de-noised match:
+    // Handles OCR digit/character substitutions like 'O'/'o' -> '0', 'S'/'s' -> '5', 'l'/'I' -> '1', '2O' -> '20'
+    final fuzzyMatch = RegExp(
+      r'(?:M\.?\s*R\.?\s*P\.?|MAX\.?\s*PRICE|Rs\.?|₹)\s*[:\.\-]?\s*(?:Rs\.?|₹)?\s*([0-9OoSlIB]{1,4}(?:[\.,][0-9Oo]{1,2})?)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (fuzzyMatch != null) {
+      final cleaned = fuzzyMatch
+          .group(1)!
+          .replaceAll(RegExp(r'[Oo]'), '0')
+          .replaceAll(RegExp(r'[Ss]'), '5')
+          .replaceAll(RegExp(r'[lIB]'), '1')
+          .replaceAll(',', '.');
+      return num.tryParse(cleaned);
+    }
+    return null;
+  }
+
   Future<void> _readPackageText(File image) async {
     setState(() => _readingPackage = true);
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -154,16 +202,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           _complianceResult = compliance;
         }
 
-        // Robust regex matching printed MRP formats:
-        // "MRP Rs. 20", "MRP: ₹15.00", "M.R.P. 25.00", "MRP (INCL. OF ALL TAXES) 50.00",
-        // "MAXIMUM RETAIL PRICE (INCL. OF ALL TAXES) 100", "Rs 10.50", "₹50"
-        final match = RegExp(
-          r'(?:(?:M\.?\s*R\.?\s*P\.?|MAX(?:IMUM)?\.?\s*RETAIL\s*PRICE)(?:\s*\([^)]*\))?|INCL\.?\s*OF\s*ALL\s*TAXES|Rs\.?|INR|₹)\s*[:\.\-]?\s*(?:Rs\.?|INR|₹)?\s*(\d+(?:\.\d{1,2})?)',
-          caseSensitive: false,
-        ).firstMatch(_ocrText);
-
-        if (_mrpController.text.trim().isEmpty && match != null) {
-          _mrpController.text = match.group(1)!;
+        // Robust & fuzzy OCR printed MRP extraction:
+        final extractedMrp = _extractMrpFromOcr(_ocrText);
+        if (_mrpController.text.trim().isEmpty && extractedMrp != null && extractedMrp > 0) {
+          _mrpController.text = extractedMrp.toString();
         }
 
         // Suggest name from first clear title-like line if currently empty
@@ -197,12 +239,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           final compliance = _complianceResult;
           String toastText;
           if (compliance != null && compliance.hasViolation) {
-            toastText = match != null
-                ? 'Extracted MRP: \u{20B9}${match.group(1)} • ⚠️ ${compliance.title}'
+            toastText = extractedMrp != null
+                ? 'Extracted MRP: \u{20B9}$extractedMrp • ⚠️ ${compliance.title}'
                 : '⚠️ ${compliance.title}: ${compliance.matchedSnippet ?? ''}';
           } else {
-            toastText = match != null
-                ? 'Extracted MRP: \u{20B9}${match.group(1)}'
+            toastText = extractedMrp != null
+                ? 'Extracted MRP: \u{20B9}$extractedMrp'
                 : 'Text scanned. Verify fields below.';
           }
           ScaffoldMessenger.of(context).showSnackBar(
@@ -434,21 +476,95 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 controller: _mrpController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _decoration('Printed MRP', prefix: '₹ '),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final amount = num.tryParse(value?.trim() ?? '');
                   return amount == null || amount <= 0 ? 'Enter a valid printed MRP' : null;
                 },
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  ...(_detectedBrandInfo?.suggestedMrps ?? const [10, 15, 20, 25, 30, 40, 50]).map(
+                    (val) {
+                      final selected = _mrpController.text == val.toString();
+                      return ChoiceChip(
+                        label: Text('₹$val'),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() {
+                            _mrpController.text = val.toString();
+                          });
+                        },
+                        selectedColor: const Color(0xffE8F8F5),
+                        backgroundColor: const Color(0xffF8FAFC),
+                        side: BorderSide(
+                          color: selected ? const Color(0xff2BAE9A) : const Color(0xffE2E8F0),
+                        ),
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: selected ? const Color(0xff2BAE9A) : const Color(0xff475569),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _chargedPriceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _decoration('Price charged by shop', prefix: '₹ '),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final amount = num.tryParse(value?.trim() ?? '');
                   return amount == null || amount <= 0 ? 'Enter the price charged' : null;
                 },
               ),
+              if (_mrpController.text.trim().isNotEmpty && num.tryParse(_mrpController.text) != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      label: Text('Exact MRP (₹${_mrpController.text})'),
+                      onPressed: () {
+                        setState(() => _chargedPriceController.text = _mrpController.text);
+                      },
+                      backgroundColor: const Color(0xffF1F5F9),
+                      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xff334155)),
+                    ),
+                    ActionChip(
+                      label: Text('+₹5 Surcharge (₹${(num.parse(_mrpController.text) + 5).toStringAsFixed(0)})'),
+                      onPressed: () {
+                        setState(() {
+                          final base = num.parse(_mrpController.text);
+                          _chargedPriceController.text = (base + 5).toStringAsFixed(0);
+                        });
+                      },
+                      backgroundColor: const Color(0xffFEE2E2),
+                      side: const BorderSide(color: Color(0xffFCA5A5)),
+                      labelStyle: const TextStyle(color: Color(0xffDC2626), fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    ActionChip(
+                      label: Text('+₹10 Surcharge (₹${(num.parse(_mrpController.text) + 10).toStringAsFixed(0)})'),
+                      onPressed: () {
+                        setState(() {
+                          final base = num.parse(_mrpController.text);
+                          _chargedPriceController.text = (base + 10).toStringAsFixed(0);
+                        });
+                      },
+                      backgroundColor: const Color(0xffFEF2F2),
+                      side: const BorderSide(color: Color(0xffFECACA)),
+                      labelStyle: const TextStyle(color: Color(0xffB91C1C), fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
               if (manualEntry) ...[
                 const SizedBox(height: 20),
                 AppCard(

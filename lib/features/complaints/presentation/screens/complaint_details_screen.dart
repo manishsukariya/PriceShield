@@ -510,7 +510,7 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                               mrp: num.tryParse(data['mrp']?.toString() ?? '0') ?? 0,
                               chargedPrice: num.tryParse(data['chargedPrice']?.toString() ?? '0') ?? 0,
                               merchantName: data['merchantName']?.toString(),
-                              storeAddress: data['merchantAddress']?.toString(),
+                              storeAddress: (data['address'] ?? data['merchantAddress'])?.toString(),
                             );
                             await Clipboard.setData(ClipboardData(text: notice));
                             if (context.mounted) {
@@ -543,7 +543,7 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                               mrp: num.tryParse(data['mrp']?.toString() ?? '0') ?? 0,
                               chargedPrice: num.tryParse(data['chargedPrice']?.toString() ?? '0') ?? 0,
                               merchantName: data['merchantName']?.toString(),
-                              storeAddress: data['merchantAddress']?.toString(),
+                              storeAddress: (data['address'] ?? data['merchantAddress'])?.toString(),
                               evidenceSummary: data['description']?.toString(),
                             );
                             await Clipboard.setData(ClipboardData(text: docket));

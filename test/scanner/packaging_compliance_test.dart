@@ -66,6 +66,18 @@ void main() {
         expect(result.hasViolation, isTrue);
         expect(result.violationType, PackagingViolationType.multipack);
       });
+
+      test('flags fuzzy multipack variations caused by chilled package water drops or optical noise', () {
+        // '1' for 'i' and 'l'
+        final r1 = PackagingComplianceService.analyze('CHILLED DRINK - NOT FOR IND1V1DUAL SA1E');
+        expect(r1.hasViolation, isTrue);
+        expect(r1.violationType, PackagingViolationType.multipack);
+
+        // 'l' for 'i'
+        final r2 = PackagingComplianceService.analyze('BEVERAGE CAN - not for indivldual sale');
+        expect(r2.hasViolation, isTrue);
+        expect(r2.violationType, PackagingViolationType.multipack);
+      });
     });
 
     group('Freebie / Sample resale detection', () {

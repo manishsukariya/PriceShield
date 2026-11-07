@@ -1,8 +1,16 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:priceshield/features/deescalation/services/deescalation_voice_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('flutter_tts'), (MethodCall methodCall) async {
+      return 1;
+    });
+  });
 
   group('DeescalationVoiceService Script & Constants Tests', () {
     test('Hindi regulatory script contains required legal citations', () {

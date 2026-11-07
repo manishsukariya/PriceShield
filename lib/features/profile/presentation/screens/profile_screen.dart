@@ -6,6 +6,7 @@ import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaints_screen.dart';
+import 'package:priceshield/features/deescalation/services/helpline_service.dart';
 import 'package:priceshield/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
@@ -132,13 +133,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            AppCard(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Guest Mode Feature Access',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  _featureRow(Icons.check_circle_rounded, const Color(0xff16A34A), 'Instant Barcode & OCR Scan (Unlimited)'),
+                  const SizedBox(height: 8),
+                  _featureRow(Icons.check_circle_rounded, const Color(0xff16A34A), 'De-escalation Law Cards & Audio Co-Pilot'),
+                  const SizedBox(height: 8),
+                  _featureRow(Icons.check_circle_rounded, const Color(0xff16A34A), 'Stealth Safe-Exit & Legal Notice Generator'),
+                  const SizedBox(height: 8),
+                  _featureRow(Icons.lock_outline_rounded, const Color(0xff94A3B8), 'Formal Complaint Tracking & Status Sync (Login required)'),
+                  const SizedBox(height: 8),
+                  _featureRow(Icons.lock_outline_rounded, const Color(0xff94A3B8), 'Shield Scout Community Points & Badges (Login required)'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             ListTile(
               tileColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               leading: const Icon(Icons.gavel_rounded, color: PriceShieldColors.primary),
               title: const Text('Consumer Rights & Laws', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Rule 18(2), Jan Vishwas Act, FHRAI 2017', style: TextStyle(fontSize: 12, color: PriceShieldColors.muted)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.pushNamed(context, '/deescalation'),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              tileColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              leading: const Icon(Icons.phone_in_talk_rounded, color: Color(0xff0284C7)),
+              title: const Text('National Consumer Helpline', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Toll-Free 1915 (Govt of India)', style: TextStyle(fontSize: 12, color: PriceShieldColors.muted)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => HelplineService.callTollFreeHelpline(),
             ),
           ],
         ),
@@ -162,6 +197,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 20),
         OutlinedButton.icon(onPressed: _loading ? null : () async { await authService.logout(); }, icon: const Icon(Icons.logout), label: const Text('Logout'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: Colors.red, side: const BorderSide(color: Colors.red))),
       ])),
+    );
+  }
+
+  Widget _featureRow(IconData icon, Color color, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 12, color: Color(0xff334155), height: 1.3),
+          ),
+        ),
+      ],
     );
   }
 

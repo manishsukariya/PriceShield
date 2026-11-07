@@ -11,10 +11,15 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen> {
-  late Future<List<Map<String, dynamic>>> _complaints = priceShieldApi.listComplaints(limit: 100);
+  late Future<List<Map<String, dynamic>>> _complaints = AuthSession.isSignedIn
+      ? priceShieldApi.listComplaints(limit: 100)
+      : Future.value(<Map<String, dynamic>>[]);
   String _filter = 'ALL';
 
-  Future<void> _refresh() async => setState(() => _complaints = priceShieldApi.listComplaints(limit: 100));
+  Future<void> _refresh() async {
+    if (!AuthSession.isSignedIn) return;
+    setState(() => _complaints = priceShieldApi.listComplaints(limit: 100));
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
@@ -65,7 +66,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   }
 
   Future<void> _recordScan() async {
-    if (!priceShieldApi.isConfigured) return;
+    if (!priceShieldApi.isConfigured || !AuthSession.isSignedIn) return;
     try {
       await priceShieldApi.createScan(
         barcode: widget.barcode,

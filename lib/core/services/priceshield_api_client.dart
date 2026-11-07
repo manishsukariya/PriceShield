@@ -36,7 +36,7 @@ class PriceShieldApiClient {
   );
   static const _debugLocalBaseUrl = 'http://192.168.0.107:3000';
   static const _defaultProductionBaseUrl = 'https://priceshield-r4v5.onrender.com';
-  static const _timeout = Duration(seconds: 15);
+  static const _timeout = Duration(seconds: 35);
 
   final http.Client _client;
   final Map<String, Map<String, dynamic>> _productCache = {};
@@ -73,13 +73,13 @@ class PriceShieldApiClient {
   }
 
   /// Fire-and-forget warm-up ping to wake up the Render backend container
-  /// as soon as the app is launched, completely avoiding 50s cold-start delays.
+  /// as soon as the app is launched, completely avoiding cold-start delays.
   Future<void> warmUpBackend() async {
     if (!isConfigured) return;
     try {
       await _client
           .get(Uri.parse('$_baseUrl/health'))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 45));
     } catch (_) {
       // Warmup ping failures are non-blocking and silently ignored.
     }

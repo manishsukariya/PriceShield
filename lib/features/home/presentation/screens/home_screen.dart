@@ -12,36 +12,115 @@ class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @overri
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<dynamic>> _content = _loadContent();
-  Future<List<dynamic>> _loadContent() => Future.wait([priceShieldApi.listScans(limit: 20), priceShieldApi.listComplaints(limit: 1)]);
+
+  Future<List<dynamic>> _loadContent() async {
+    if (!AuthSession.isSignedIn) {
+      // In Guest Mode, return empty scans & complaints instantly (0ms) without 401 errors.
+      return <dynamic>[<Map<String, dynamic>>[], <Map<String, dynamic>>[]];
+    }
+    try {
+      return await Future.wait([
+        priceShieldApi.listScans(limit: 20),
+        priceShieldApi.listComplaints(limit: 1),
+      ]);
+    } catch (_) {
+      // Graceful offline fallback: if backend is sleeping or user is offline,
+      // return empty lists so the dashboard renders cleanly instead of crashing.
+      return <dynamic>[<Map<String, dynamic>>[], <Map<String, dynamic>>[]];
+    }
+  }
+
   Future<void> _refresh() async => setState(() => _content = _loadContent());
   void _openScanner() => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerScreen())).then((_) => _refresh());
 
   @override Widget build(BuildContext context) {
-    final name = AuthSession.currentUser.value?.displayName.trim() ?? '';
-    final firstName = name.isEmpty ? 'there' : name.split(RegExp(r'\s+')).first;
+    final user = AuthSession.currentUser.value;
+    final name = user?.displayName.trim() ?? '';
+    final isGuest = !AuthSession.isSignedIn;
+    final firstName = isGuest
+        ? 'Scout'
+        : (name.isEmpty ? 'there' : name.split(RegExp(r'\s+')).first);
+    final avatarLetter = isGuest ? 'S' : (name.isEmpty ? 'U' : name[0].toUpperCase());
+
     return Scaffold(
       backgroundColor: PriceShieldColors.background,
-      appBar: AppBar(titleSpacing: 20, title: const Text('PriceShield'), actions: [Padding(padding: const EdgeInsets.only(right: 20), child: CircleAvatar(backgroundColor: PriceShieldColors.primary, child: Text(name.isEmpty ? 'U' : name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))))]),
-      body: RefreshIndicator(color: PriceShieldColors.primary, onRefresh: _refresh, child: FutureBuilder<List<dynamic>>(future: _content, builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const _DashboardSkeleton();
-        if (snapshot.hasError) return ListView(padding: const EdgeInsets.fromLTRB(20, 120, 20, 100), children: [InlineError(message: 'We could not load your dashboard.', onRetry: _refresh)]);
-        final scans = List<Map<String, dynamic>>.from(snapshot.data![0] as List);
-        final complaints = List<Map<String, dynamic>>.from(snapshot.data![1] as List);
-        return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 116), children: [
-          Text('Hello, $firstName', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text('Stay informed. Pay the right price.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: PriceShieldColors.muted)),
-          const SizedBox(height: 20), _scanHero(), const SizedBox(height: 16), _quickSummary(scans, complaints), const SizedBox(height: 16),
-          _copilotCard(), const SizedBox(height: 24),
-          Text('Latest activity', style: Theme.of(context).textTheme.titleLarge), const SizedBox(height: 10),
-          if (scans.isEmpty) _emptyScans() else ...scans.take(3).map(_scanTile), const SizedBox(height: 24), _rightsCard(),
-        ]);
-      })),
+      appBar: AppBar(
+        titleSpacing: 20,
+        title: const Text('PriceShield'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: CircleAvatar(
+              backgroundColor: PriceShieldColors.primary,
+              child: Text(
+                avatarLetter,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        color: PriceShieldColors.primary,
+        onRefresh: _refresh,
+        child: FutureBuilder<List<dynamic>>(
+          future: _content,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) return const _DashboardSkeleton();
+            final scans = snapshot.hasData && snapshot.data!.isNotEmpty
+                ? List<Map<String, dynamic>>.from(snapshot.data![0] as List)
+                : <Map<String, dynamic>>[];
+            final complaints = snapshot.hasData && snapshot.data!.length > 1
+                ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
+                : <Map<String, dynamic>>[];
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 116),
+              children: [
+                Text('Hello, $firstName', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 4),
+                Text(
+                  isGuest
+                      ? 'Shield Scout Guest Mode. Scan any product to verify MRP.'
+                      : 'Stay informed. Pay the right price.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: PriceShieldColors.muted),
+                ),
+                const SizedBox(height: 20),
+                _scanHero(),
+                const SizedBox(height: 16),
+                _quickSummary(scans, complaints),
+                const SizedBox(height: 16),
+                _copilotCard(),
+                const SizedBox(height: 24),
+                Text('Latest activity', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+                if (scans.isEmpty) _emptyScans() else ...scans.take(3).map(_scanTile),
+                const SizedBox(height: 24),
+                _rightsCard(),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
   Widget _scanHero() => InkWell(onTap: _openScanner, borderRadius: BorderRadius.circular(22), child: Ink(padding: const EdgeInsets.all(22), decoration: BoxDecoration(color: PriceShieldColors.navy, borderRadius: BorderRadius.circular(22)), child: Row(children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Check a product', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)), SizedBox(height: 8), Text('Scan the barcode to compare the printed MRP.', style: TextStyle(color: Color(0xffC9D5E6), height: 1.35)), SizedBox(height: 18), _ActionLabel()])), Container(width: 58, height: 58, decoration: BoxDecoration(color: PriceShieldColors.primary, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 30))])));
-  Widget _quickSummary(List<Map<String, dynamic>> scans, List<Map<String, dynamic>> complaints) => AppCard(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18), child: Row(children: [_metric('Scans', scans.length.toString(), Icons.qr_code_2_rounded), _divider(), _metric('Complaints', complaints.isEmpty ? '0' : complaints.length.toString(), Icons.receipt_long_outlined), _divider(), _metric('Status', complaints.isEmpty ? 'Clear' : 'Active', Icons.verified_outlined)]));
+  Widget _quickSummary(List<Map<String, dynamic>> scans, List<Map<String, dynamic>> complaints) {
+    final isGuest = !AuthSession.isSignedIn;
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        children: [
+          _metric('Scans', isGuest ? 'Guest' : scans.length.toString(), Icons.qr_code_2_rounded),
+          _divider(),
+          _metric('Complaints', isGuest ? '0' : complaints.length.toString(), Icons.receipt_long_outlined),
+          _divider(),
+          _metric('Status', isGuest ? 'Ready' : (complaints.isEmpty ? 'Clear' : 'Active'), Icons.verified_outlined),
+        ],
+      ),
+    );
+  }
   Widget _metric(String label, String value, IconData icon) => Expanded(child: Column(children: [Icon(icon, color: PriceShieldColors.primary, size: 22), const SizedBox(height: 7), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 2), Text(label, style: const TextStyle(color: PriceShieldColors.muted, fontSize: 12))]));
   Widget _divider() => Container(width: 1, height: 42, color: PriceShieldColors.border);
   Widget _copilotCard() => AppCard(

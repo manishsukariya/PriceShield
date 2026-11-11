@@ -11,15 +11,92 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen> {
-  late Future<List<Map<String, dynamic>>> _complaints = AuthSession.isSignedIn
-      ? priceShieldApi.listComplaints(limit: 100)
-      : Future.value(<Map<String, dynamic>>[]);
+  final List<Map<String, dynamic>> _items = [];
+  String? _nextCursor;
+  String? _error;
+  bool _loading = true;
+  bool _loadingMore = false;
   String _filter = 'ALL';
 
-  Future<void> _refresh() async {
-    if (!AuthSession.isSignedIn) return;
-    setState(() => _complaints = priceShieldApi.listComplaints(limit: 100));
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
   }
+
+  Future<void> _loadInitial() async {
+    if (!AuthSession.isSignedIn) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final page = await priceShieldApi.listComplaintsPage(limit: 20);
+      if (!mounted) return;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(page.items);
+        _nextCursor = page.nextCursor;
+        _loading = false;
+      });
+    } on PriceShieldApiException catch (error) {
+      if (error.isUnauthorized) await AuthSession.clear();
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'We could not load your complaints.';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (!AuthSession.isSignedIn || _loadingMore || _nextCursor == null) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await priceShieldApi.listComplaintsPage(
+        limit: 20,
+        cursor: _nextCursor,
+      );
+      if (!mounted) return;
+      final existingIds = _items.map((item) => item['id']).toSet();
+      setState(() {
+        for (final item in page.items) {
+          if (!existingIds.contains(item['id'])) {
+            _items.add(item);
+          }
+        }
+        _nextCursor = page.nextCursor;
+        _loadingMore = false;
+      });
+    } on PriceShieldApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: PriceShieldColors.navy),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not load more complaints. Please try again.'),
+          backgroundColor: PriceShieldColors.navy,
+        ),
+      );
+    }
+  }
+
+  Future<void> _refresh() => _loadInitial();
 
   @override
   Widget build(BuildContext context) {
@@ -73,37 +150,68 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       );
     }
 
-    return Scaffold(
+    if (_loading) {
+      return Scaffold(
         backgroundColor: PriceShieldColors.background,
         appBar: AppBar(title: const Text('Complaints')),
-        body: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _complaints,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) return const _ComplaintsSkeleton();
-            if (snapshot.hasError) {
-              final message = snapshot.error is PriceShieldApiException ? (snapshot.error as PriceShieldApiException).message : 'We could not load your complaints.';
-              return ListView(padding: const EdgeInsets.all(20), children: [InlineError(message: message, onRetry: _refresh)]);
-            }
-            final all = snapshot.data ?? <Map<String, dynamic>>[];
-            final filtered = _filter == 'ALL' ? all : all.where((item) => _status(item) == _filter).toList();
-            final resolved = all.where((item) => _status(item) == 'RESOLVED').length;
-            final active = all.length - resolved;
-            return RefreshIndicator(
-              color: PriceShieldColors.primary,
-              onRefresh: _refresh,
-              child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 116), children: [
-                _summary(all.length, active, resolved),
-                const SizedBox(height: 22),
-                Text('Track your reports', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 10),
-                _filters(),
-                const SizedBox(height: 14),
-                if (filtered.isEmpty) const _EmptyComplaints() else ...filtered.map(_complaintCard),
-              ]),
-            );
-          },
+        body: const _ComplaintsSkeleton(),
+      );
+    }
+
+    if (_error != null && _items.isEmpty) {
+      return Scaffold(
+        backgroundColor: PriceShieldColors.background,
+        appBar: AppBar(title: const Text('Complaints')),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [InlineError(message: _error!, onRetry: _refresh)],
         ),
       );
+    }
+
+    final filtered = _filter == 'ALL'
+        ? _items
+        : _items.where((item) => _status(item) == _filter).toList();
+    final resolved = _items.where((item) => _status(item) == 'RESOLVED').length;
+    final active = _items.length - resolved;
+
+    return Scaffold(
+      backgroundColor: PriceShieldColors.background,
+      appBar: AppBar(title: const Text('Complaints')),
+      body: RefreshIndicator(
+        color: PriceShieldColors.primary,
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 116),
+          children: [
+            _summary(_items.length, active, resolved),
+            const SizedBox(height: 22),
+            Text('Track your reports', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            _filters(),
+            const SizedBox(height: 14),
+            if (filtered.isEmpty)
+              const _EmptyComplaints()
+            else
+              ...filtered.map(_complaintCard),
+            if (_nextCursor != null) ...[
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                onPressed: _loadingMore ? null : _loadMore,
+                icon: _loadingMore
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.expand_more_rounded),
+                label: Text(_loadingMore ? 'Loading more...' : 'Load older complaints'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   String _status(Map<String, dynamic> item) => item['status']?.toString().toUpperCase() ?? 'PENDING';

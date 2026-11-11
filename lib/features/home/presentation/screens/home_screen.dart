@@ -8,25 +8,57 @@ import 'package:priceshield/features/education/presentation/screens/education_sc
 import 'package:priceshield/features/scanner/presentation/screens/scan_details_screen.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scanner_screen.dart';
 
+class _HomeDashboardData {
+  const _HomeDashboardData({
+    required this.scans,
+    required this.complaints,
+    this.hasMoreScans = false,
+    this.hasMoreComplaints = false,
+    this.syncError,
+  });
+
+  final List<Map<String, dynamic>> scans;
+  final List<Map<String, dynamic>> complaints;
+  final bool hasMoreScans;
+  final bool hasMoreComplaints;
+  final String? syncError;
+}
+
 class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState() => _HomeScreenState(); }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<dynamic>> _content = _loadContent();
+  late Future<_HomeDashboardData> _content = _loadContent();
 
-  Future<List<dynamic>> _loadContent() async {
+  Future<_HomeDashboardData> _loadContent() async {
     if (!AuthSession.isSignedIn) {
       // In Guest Mode, return empty scans & complaints instantly (0ms) without 401 errors.
-      return <dynamic>[<Map<String, dynamic>>[], <Map<String, dynamic>>[]];
+      return const _HomeDashboardData(scans: [], complaints: []);
     }
     try {
-      return await Future.wait([
-        priceShieldApi.listScans(limit: 20),
-        priceShieldApi.listComplaints(limit: 1),
+      final results = await Future.wait([
+        priceShieldApi.listScansPage(limit: 20),
+        priceShieldApi.listComplaintsPage(limit: 20),
       ]);
+      final scansPage = results[0];
+      final complaintsPage = results[1];
+      return _HomeDashboardData(
+        scans: scansPage.items,
+        complaints: complaintsPage.items,
+        hasMoreScans: scansPage.hasMore,
+        hasMoreComplaints: complaintsPage.hasMore,
+      );
+    } on PriceShieldApiException catch (error) {
+      return _HomeDashboardData(
+        scans: const [],
+        complaints: const [],
+        syncError: error.message,
+      );
     } catch (_) {
-      // Graceful offline fallback: if backend is sleeping or user is offline,
-      // return empty lists so the dashboard renders cleanly instead of crashing.
-      return <dynamic>[<Map<String, dynamic>>[], <Map<String, dynamic>>[]];
+      return const _HomeDashboardData(
+        scans: [],
+        complaints: [],
+        syncError: 'Offline or server unavailable. Pull down or tap Retry to sync.',
+      );
     }
   }
 
@@ -63,16 +95,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         color: PriceShieldColors.primary,
         onRefresh: _refresh,
-        child: FutureBuilder<List<dynamic>>(
+        child: FutureBuilder<_HomeDashboardData>(
           future: _content,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) return const _DashboardSkeleton();
-            final scans = snapshot.hasData && snapshot.data!.isNotEmpty
-                ? List<Map<String, dynamic>>.from(snapshot.data![0] as List)
-                : <Map<String, dynamic>>[];
-            final complaints = snapshot.hasData && snapshot.data!.length > 1
-                ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
-                : <Map<String, dynamic>>[];
+            final data = snapshot.data ?? const _HomeDashboardData(scans: [], complaints: []);
+            final scans = data.scans;
+            final complaints = data.complaints;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 116),
@@ -88,12 +117,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
                 _scanHero(),
                 const SizedBox(height: 16),
-                _quickSummary(scans, complaints),
+                _quickSummary(
+                  scans,
+                  complaints,
+                  hasMoreScans: data.hasMoreScans,
+                  hasMoreComplaints: data.hasMoreComplaints,
+                ),
                 const SizedBox(height: 16),
                 _copilotCard(),
                 const SizedBox(height: 24),
                 Text('Latest activity', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 10),
+                if (data.syncError != null && !isGuest) ...[
+                  _syncNotice(data.syncError!),
+                  const SizedBox(height: 10),
+                ],
                 if (scans.isEmpty) _emptyScans() else ...scans.take(3).map(_scanTile),
                 const SizedBox(height: 24),
                 _rightsCard(),
@@ -106,21 +144,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _scanHero() => InkWell(onTap: _openScanner, borderRadius: BorderRadius.circular(22), child: Ink(padding: const EdgeInsets.all(22), decoration: BoxDecoration(color: PriceShieldColors.navy, borderRadius: BorderRadius.circular(22)), child: Row(children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Check a product', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)), SizedBox(height: 8), Text('Scan the barcode to compare the printed MRP.', style: TextStyle(color: Color(0xffC9D5E6), height: 1.35)), SizedBox(height: 18), _ActionLabel()])), Container(width: 58, height: 58, decoration: BoxDecoration(color: PriceShieldColors.primary, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 30))])));
-  Widget _quickSummary(List<Map<String, dynamic>> scans, List<Map<String, dynamic>> complaints) {
+  Widget _quickSummary(
+    List<Map<String, dynamic>> scans,
+    List<Map<String, dynamic>> complaints, {
+    bool hasMoreScans = false,
+    bool hasMoreComplaints = false,
+  }) {
     final isGuest = !AuthSession.isSignedIn;
+    final scansLabel = isGuest
+        ? 'Guest'
+        : '${scans.length}${hasMoreScans ? '+' : ''}';
+    final complaintsLabel = isGuest
+        ? '0'
+        : '${complaints.length}${hasMoreComplaints ? '+' : ''}';
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       child: Row(
         children: [
-          _metric('Scans', isGuest ? 'Guest' : scans.length.toString(), Icons.qr_code_2_rounded),
+          _metric('Scans', scansLabel, Icons.qr_code_2_rounded),
           _divider(),
-          _metric('Complaints', isGuest ? '0' : complaints.length.toString(), Icons.receipt_long_outlined),
+          _metric('Complaints', complaintsLabel, Icons.receipt_long_outlined),
           _divider(),
           _metric('Status', isGuest ? 'Ready' : (complaints.isEmpty ? 'Clear' : 'Active'), Icons.verified_outlined),
         ],
       ),
     );
   }
+  Widget _syncNotice(String message) => AppCard(
+        color: const Color(0xffFFF7ED),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: PriceShieldColors.warning, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Color(0xff92400E), fontSize: 12),
+              ),
+            ),
+            TextButton(
+              onPressed: _refresh,
+              child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
   Widget _metric(String label, String value, IconData icon) => Expanded(child: Column(children: [Icon(icon, color: PriceShieldColors.primary, size: 22), const SizedBox(height: 7), Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 2), Text(label, style: const TextStyle(color: PriceShieldColors.muted, fontSize: 12))]));
   Widget _divider() => Container(width: 1, height: 42, color: PriceShieldColors.border);
   Widget _copilotCard() => AppCard(

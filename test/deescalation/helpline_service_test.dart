@@ -35,7 +35,7 @@ void main() {
       expect(message, contains('8901262010053'));
       expect(message, contains('Printed MRP: ₹27'));
       expect(message, contains('Demanded Price: ₹30'));
-      expect(message, contains('Excess Surcharge: ₹3 (Illegal)'));
+      expect(message, contains('Excess Surcharge: ₹3 (Reported above MRP)'));
       expect(message, contains('Gupta Dairy'));
       expect(message, contains('Sector 14, Gurugram'));
     });

@@ -260,7 +260,7 @@ void main() {
   });
 
   group('ScanResultScreen Widget Tests', () {
-    testWidgets('renders celebratory Shield Scout Points chip and standard overcharge cards',
+    testWidgets('renders Consumer Advisory chip and standard overcharge cards',
         (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
@@ -278,8 +278,8 @@ void main() {
       );
       await tester.pump();
 
-      // Verify celebratory Shield Scout Points Chip
-      expect(find.text('🛡️ +50 ShieldPoints Earned! (Scout Level 1)'), findsWidgets);
+      // Verify Consumer Advisory Chip
+      expect(find.text('🛡️ Consumer Advisory • Verify packet MRP & save receipt'), findsOneWidget);
 
       // Verify Overcharge details
       expect(find.text('Overcharge detected'), findsOneWidget);
@@ -322,8 +322,8 @@ void main() {
       expect(find.textContaining('NOT FOR INDIVIDUAL SALE'), findsWidgets);
       expect(find.text(compliance.legalAdvice), findsOneWidget);
 
-      // Points badge should also be displayed
-      expect(find.text('🛡️ +50 ShieldPoints Earned! (Scout Level 1)'), findsWidgets);
+      // Consumer advisory badge should also be displayed
+      expect(find.text('🛡️ Consumer Advisory • Verify packet MRP & save receipt'), findsOneWidget);
 
       // Escalation buttons are accessible
       expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsOneWidget);

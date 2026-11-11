@@ -3,10 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/services/auth_service.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/auth/presentation/screens/verify_otp_screen.dart';
+import 'package:priceshield/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.authService});
+
+  final AuthService? authService;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -19,7 +23,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final mobilenumbarController = TextEditingController();
 
   bool loading = false;
+  bool _googleLoading = false;
   bool _passwordVisible = false;
+
+  AuthService get _auth => widget.authService ?? authService;
+  bool get _busy => loading || _googleLoading;
 
   @override
   void dispose() {
@@ -122,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: loading ? null : registerUser,
+                        onPressed: _busy ? null : registerUser,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: PriceShieldColors.primary,
                           shape: RoundedRectangleBorder(
@@ -150,10 +158,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text("Already have an account? "),
                         GestureDetector(
-                          onTap: () => Navigator.pushReplacementNamed(
-                            context,
-                            '/signin',
-                          ),
+                          onTap: _busy
+                              ? null
+                              : () => Navigator.pushReplacementNamed(
+                                    context,
+                                    '/signin',
+                                  ),
                           child: const Text(
                             "Login",
                             style: TextStyle(
@@ -164,10 +174,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 18),
+
+                    Row(
+                      children: const [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            "OR",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    GoogleSignInButton(
+                      onPressed: _signUpWithGoogle,
+                      loading: _googleLoading,
+                      disabled: loading,
+                    ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 28),
           ],
         ),
       ),
@@ -191,7 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => loading = true);
 
     try {
-      await authService.register(
+      await _auth.register(
         displayName: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -206,6 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             email: emailController.text.trim(),
             displayName: nameController.text.trim(),
             mobile: mobilenumbarController.text.trim(),
+            authService: widget.authService,
           ),
         ),
       );
@@ -224,9 +264,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> _signUpWithGoogle() async {
+    setState(() => _googleLoading = true);
+    try {
+      await _auth.signInWithGoogle();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+    } on PriceShieldAuthException catch (e) {
+      if (e.code != 'google-canceled' && mounted) {
+        _show(e.message);
+      }
+    } on PriceShieldApiException catch (e) {
+      if (mounted) _show(e.message);
+    } catch (_) {
+      if (mounted) {
+        _show(
+          'Google sign-in could not be completed. Check your connection and try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
   Future<void> _continueExistingAccount() async {
     try {
-      await authService.continueUnverifiedRegistration(
+      await _auth.continueUnverifiedRegistration(
         email: emailController.text.trim(),
         password: passwordController.text,
       );
@@ -241,6 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             email: emailController.text.trim(),
             displayName: nameController.text.trim(),
             mobile: mobilenumbarController.text.trim(),
+            authService: widget.authService,
           ),
         ),
       );

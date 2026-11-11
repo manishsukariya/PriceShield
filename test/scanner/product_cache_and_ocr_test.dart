@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 
@@ -240,6 +243,85 @@ void main() {
       expect(Gs1IndiaBrandResolver.resolve('012345678905'), isNull);
       expect(Gs1IndiaBrandResolver.resolve(''), isNull);
       expect(Gs1IndiaBrandResolver.resolve(null), isNull);
+    });
+  });
+
+  group('Catalog provenance, cursor pagination & 204 responses', () {
+    test('offline reference catalog includes provenance tags', () {
+      final client = PriceShieldApiClient();
+      final product = client.getCachedProduct('8901262150057');
+      expect(product, isNotNull);
+      expect(product!['source'], 'offline_reference_catalog');
+      expect(product['isReferenceEstimate'], isTrue);
+    });
+
+    test('listComplaintsPage and listScansPage parse meta.nextCursor cleanly', () async {
+      final requestedUris = <Uri>[];
+      final mockClient = MockClient((request) async {
+        requestedUris.add(request.url);
+        if (request.url.path.endsWith('/complaints')) {
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {'id': 'cmp_1', 'productName': 'Item 1', 'status': 'PENDING'},
+              ],
+              'meta': {'nextCursor': 'cmp_cursor_2'},
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {'id': 'scn_1', 'productName': 'Milk', 'mrp': 27, 'chargedPrice': 30},
+            ],
+            'meta': {'nextCursor': null},
+          }),
+          200,
+        );
+      });
+
+      final client = PriceShieldApiClient(
+        client: mockClient,
+        tokenProvider: () async => 'test-jwt',
+      );
+
+      final complaintsPage = await client.listComplaintsPage(
+        status: 'PENDING',
+        limit: 20,
+        cursor: 'cmp_cursor_1',
+      );
+      expect(complaintsPage.items, hasLength(1));
+      expect(complaintsPage.items.first['id'], 'cmp_1');
+      expect(complaintsPage.hasMore, isTrue);
+      expect(complaintsPage.nextCursor, 'cmp_cursor_2');
+      expect(requestedUris.first.queryParameters['cursor'], 'cmp_cursor_1');
+      expect(requestedUris.first.queryParameters['status'], 'PENDING');
+
+      final scansPage = await client.listScansPage(limit: 20);
+      expect(scansPage.items, hasLength(1));
+      expect(scansPage.hasMore, isFalse);
+      expect(scansPage.nextCursor, isNull);
+    });
+
+    test('deleteAccount and withdrawComplaint accept 204 empty responses', () async {
+      final methodsAndPaths = <String>[];
+      final mockClient = MockClient((request) async {
+        methodsAndPaths.add('${request.method} ${request.url.path}');
+        return http.Response('', 204);
+      });
+
+      final client = PriceShieldApiClient(
+        client: mockClient,
+        tokenProvider: () async => 'test-jwt',
+      );
+
+      await client.deleteAccount();
+      await client.withdrawComplaint('cmp_123');
+      expect(methodsAndPaths, [
+        'DELETE /api/v1/me',
+        'DELETE /api/v1/complaints/cmp_123',
+      ]);
     });
   });
 }

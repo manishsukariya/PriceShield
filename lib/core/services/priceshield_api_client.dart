@@ -6,6 +6,15 @@ import 'package:http/http.dart' as http;
 import 'package:priceshield/core/data/default_products_catalog.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 
+class PagedResult<T> {
+  const PagedResult({required this.items, this.nextCursor});
+
+  final List<T> items;
+  final String? nextCursor;
+
+  bool get hasMore => nextCursor != null && nextCursor!.isNotEmpty;
+}
+
 class PriceShieldApiException implements Exception {
   const PriceShieldApiException(this.message, {this.statusCode});
 
@@ -26,8 +35,11 @@ class PriceShieldApiException implements Exception {
 /// local USB-device runs working when VS Code is started without launch.json.
 /// Release builds still require an explicit HTTPS configuration.
 class PriceShieldApiClient {
-  PriceShieldApiClient({http.Client? client})
-      : _client = client ?? http.Client() {
+  PriceShieldApiClient({
+    http.Client? client,
+    Future<String?> Function()? tokenProvider,
+  }) : _client = client ?? http.Client(),
+       _tokenProvider = tokenProvider ?? AuthSession.refreshToken {
     _initProductCache();
   }
 
@@ -39,11 +51,15 @@ class PriceShieldApiClient {
   static const _timeout = Duration(seconds: 35);
 
   final http.Client _client;
+  final Future<String?> Function() _tokenProvider;
   final Map<String, Map<String, dynamic>> _productCache = {};
 
   void _initProductCache() {
     for (final entry in defaultIndianProductsCatalog.entries) {
-      _productCache[entry.key] = Map<String, dynamic>.from(entry.value);
+      final item = Map<String, dynamic>.from(entry.value);
+      item['source'] = 'offline_reference_catalog';
+      item['isReferenceEstimate'] = true;
+      _productCache[entry.key] = item;
     }
   }
 
@@ -111,6 +127,8 @@ class PriceShieldApiClient {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> changes) =>
       _requestMap('PATCH', '/me', body: changes);
 
+  Future<void> deleteAccount() => _request('DELETE', '/me').then((_) {});
+
   Future<Map<String, dynamic>> getComplaint(String id) =>
       _requestMap('GET', '/complaints/${Uri.encodeComponent(id)}');
 
@@ -135,8 +153,17 @@ class PriceShieldApiClient {
     },
   );
 
-  Future<List<Map<String, dynamic>>> listScans({int limit = 20}) =>
-      _requestList('GET', '/scans?limit=$limit');
+  Future<PagedResult<Map<String, dynamic>>> listScansPage({
+    int limit = 20,
+    String? cursor,
+  }) {
+    final query = <String, String>{'limit': '$limit'};
+    if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+    return _requestPaged('GET', '/scans?${Uri(queryParameters: query).query}');
+  }
+
+  Future<List<Map<String, dynamic>>> listScans({int limit = 20}) async =>
+      (await listScansPage(limit: limit)).items;
 
   Future<Map<String, dynamic>> createComplaint({
     required String barcode,
@@ -191,17 +218,25 @@ class PriceShieldApiClient {
     },
   );
 
-  Future<List<Map<String, dynamic>>> listComplaints({
+  Future<PagedResult<Map<String, dynamic>>> listComplaintsPage({
     String? status,
     int limit = 20,
+    String? cursor,
   }) {
     final query = <String, String>{'limit': '$limit'};
     if (status != null && status.isNotEmpty) query['status'] = status;
-    return _requestList(
+    if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+    return _requestPaged(
       'GET',
       '/complaints?${Uri(queryParameters: query).query}',
     );
   }
+
+  Future<List<Map<String, dynamic>>> listComplaints({
+    String? status,
+    int limit = 20,
+  }) async =>
+      (await listComplaintsPage(status: status, limit: limit)).items;
 
   Future<Map<String, dynamic>> _requestMap(
     String method,
@@ -223,23 +258,49 @@ class PriceShieldApiClient {
     return data;
   }
 
-  Future<List<Map<String, dynamic>>> _requestList(
+  Future<PagedResult<Map<String, dynamic>>> _requestPaged(
     String method,
     String path,
   ) async {
-    final data = await _request(method, path);
-    if (data is! List) {
+    final envelope = await _requestEnvelope(method, path);
+    final rawData = envelope['data'];
+    if (rawData is! List) {
       throw const PriceShieldApiException(
         'The server returned an invalid response.',
       );
     }
-    return data
+    final meta = envelope['meta'];
+    final nextCursor = meta is Map<String, dynamic>
+        ? meta['nextCursor']?.toString()
+        : null;
+    final items = rawData
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
+    return PagedResult<Map<String, dynamic>>(
+      items: items,
+      nextCursor: (nextCursor != null && nextCursor.isNotEmpty)
+          ? nextCursor
+          : null,
+    );
   }
 
   Future<dynamic> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    bool authenticated = true,
+  }) async {
+    final envelope = await _requestEnvelope(
+      method,
+      path,
+      body: body,
+      authenticated: authenticated,
+    );
+    return envelope['data'];
+  }
+
+  Future<Map<String, dynamic>> _requestEnvelope(
     String method,
     String path, {
     Map<String, dynamic>? body,
@@ -262,7 +323,7 @@ class PriceShieldApiClient {
         'Server connection configuration is invalid.',
       );
     }
-    final token = await AuthSession.refreshToken();
+    final token = await _tokenProvider();
     if (authenticated && (token == null || token.isEmpty)) {
       throw const PriceShieldApiException(
         'Session expired. Please sign in again.',
@@ -292,12 +353,15 @@ class PriceShieldApiClient {
           statusCode: response.statusCode,
         );
       }
+      if (response.statusCode == 204 || response.body.isEmpty) {
+        return <String, dynamic>{'data': null};
+      }
       if (decoded is! Map<String, dynamic> || !decoded.containsKey('data')) {
         throw const PriceShieldApiException(
           'Unable to process server response. Please try again.',
         );
       }
-      return decoded['data'];
+      return decoded;
     } on TimeoutException {
       throw const PriceShieldApiException(
         'Connection timed out. Please check your internet connection.',

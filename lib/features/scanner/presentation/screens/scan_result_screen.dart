@@ -39,30 +39,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   void initState() {
     super.initState();
     _recordScan();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.shield_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '🛡️ +50 ShieldPoints Earned! (Scout Level 1)',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: PriceShieldColors.primary,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    });
   }
 
   Future<void> _recordScan() async {
@@ -92,7 +68,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Legal Notice copied to clipboard! Ready to share on WhatsApp or Email.'),
+          content: Text('Advisory notice copied to clipboard! Ready to review or share.'),
           backgroundColor: PriceShieldColors.navy,
           duration: Duration(seconds: 3),
         ),
@@ -112,7 +88,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Official Grievance Docket copied! Ready for NCH 1915 or DCDRC.'),
+          content: Text('Grievance summary docket copied! Review details before filing on NCH 1915.'),
           backgroundColor: PriceShieldColors.navy,
           duration: Duration(seconds: 3),
         ),
@@ -133,7 +109,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
-          // Shield Scout Points Celebratory Badge
+          // Consumer Advisory Badge
           Center(
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -149,11 +125,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   Icon(Icons.shield_rounded, color: PriceShieldColors.primary, size: 18),
                   SizedBox(width: 6),
                   Text(
-                    '🛡️ +50 ShieldPoints Earned! (Scout Level 1)',
+                    '🛡️ Consumer Advisory • Verify packet MRP & save receipt',
                     style: TextStyle(
                       color: PriceShieldColors.navy,
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -412,7 +388,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           Text(
-                            'Legal texts ready for merchant or consumer forum',
+                            'Draft templates to review before contacting merchant or NCH',
                             style: TextStyle(color: PriceShieldColors.muted, fontSize: 12),
                           ),
                         ],
@@ -602,7 +578,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Never risk your safety arguing with hostile or aggressive shopkeepers. Follow this 3-step silent evidence playbook to hold them legally accountable safely.',
+                        'Never risk your safety arguing with hostile or aggressive shopkeepers. Follow this 3-step silent evidence checklist to document the incident safely for verification and reporting.',
                         style: TextStyle(fontSize: 12, color: Color(0xff78350F), height: 1.35),
                       ),
                     ),
@@ -649,7 +625,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           mrp: widget.mrp,
                           charged: widget.charged,
                           initialNotes:
-                              'Silent evidence report filed via PriceShield Stealth Safe-Exit Mode. Charged ₹${widget.charged} against printed MRP ₹${widget.mrp} (Overcharge: ₹${(widget.charged - widget.mrp).toStringAsFixed(2)}). Merchant UPI proof attached.',
+                              'Silent evidence report prepared via PriceShield Stealth Safe-Exit Mode. Charged ₹${widget.charged} against printed MRP ₹${widget.mrp} (Reported difference: ₹${(widget.charged - widget.mrp).toStringAsFixed(2)}). Attach UPI receipt / photo evidence below.',
                         ),
                       ),
                     );

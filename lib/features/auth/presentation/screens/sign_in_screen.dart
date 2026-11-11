@@ -7,9 +7,12 @@ import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/widgets/wave_clipper.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
+import 'package:priceshield/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  const SignInScreen({super.key, this.authService});
+
+  final AuthService? authService;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -20,9 +23,13 @@ class _SignInScreenState extends State<SignInScreen> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+  bool _googleLoading = false;
   bool _passwordVisible = false;
   Timer? _resendTimer;
   int _resendSeconds = 0;
+
+  AuthService get _auth => widget.authService ?? authService;
+  bool get _busy => loading || _googleLoading;
 
   @override
   void dispose() {
@@ -118,7 +125,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: loading ? null : _forgotPassword,
+                        onPressed: _busy ? null : _forgotPassword,
                         child: const Text('Forgot password?'),
                       ),
                     ),
@@ -129,7 +136,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: loading ? null : loginUser,
+                        onPressed: _busy ? null : loginUser,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: PriceShieldColors.primary,
                           shape: RoundedRectangleBorder(
@@ -157,8 +164,9 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         const Text("Don't have an account? "),
                         GestureDetector(
-                          onTap: () =>
-                              Navigator.pushNamed(context, '/register'),
+                          onTap: _busy
+                              ? null
+                              : () => Navigator.pushNamed(context, '/register'),
                           child: const Text(
                             "Sign up",
                             style: TextStyle(
@@ -192,14 +200,28 @@ class _SignInScreenState extends State<SignInScreen> {
 
                     const SizedBox(height: 16),
 
+                    GoogleSignInButton(
+                      onPressed: _signInWithGoogle,
+                      loading: _googleLoading,
+                      disabled: loading,
+                    ),
+
+                    const SizedBox(height: 12),
+
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          AuthSession.continueAsGuest();
-                          Navigator.pushReplacementNamed(context, '/home');
-                        },
+                        onPressed: _busy
+                            ? null
+                            : () {
+                                AuthSession.continueAsGuest();
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/home',
+                                  (_) => false,
+                                );
+                              },
                         icon: const Icon(Icons.bolt_rounded, color: PriceShieldColors.primary),
                         label: const Text(
                           "⚡ Instant Scan (Continue as Guest)",
@@ -220,6 +242,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 28),
           ],
         ),
       ),
@@ -236,13 +259,13 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => loading = true);
 
     try {
-      await authService.login(
+      await _auth.login(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } on PriceShieldAuthException catch (e) {
       if (e.code == 'email-not-verified') {
         await _showUnverifiedDialog();
@@ -260,6 +283,31 @@ class _SignInScreenState extends State<SignInScreen> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _googleLoading = true);
+
+    try {
+      await _auth.signInWithGoogle();
+
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+    } on PriceShieldAuthException catch (e) {
+      if (e.code != 'google-canceled' && mounted) {
+        _show(e.message);
+      }
+    } on PriceShieldApiException catch (e) {
+      if (mounted) _show(e.message);
+    } catch (_) {
+      if (mounted) {
+        _show(
+          'Google sign-in could not be completed. Check your connection and try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
   Future<void> _forgotPassword() async {
     final email = emailController.text.trim();
     if (email.isEmpty) {
@@ -268,7 +316,7 @@ class _SignInScreenState extends State<SignInScreen> {
     }
     setState(() => loading = true);
     try {
-      await authService.sendPasswordReset(email);
+      await _auth.sendPasswordReset(email);
       _show('Password reset link sent. Check your inbox.');
     } on PriceShieldAuthException catch (error) {
       _show(error.message);
@@ -304,7 +352,7 @@ class _SignInScreenState extends State<SignInScreen> {
       return;
     }
     try {
-      await authService.resendVerification();
+      await _auth.resendVerification();
       _resendSeconds = 60;
       _resendTimer?.cancel();
       _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {

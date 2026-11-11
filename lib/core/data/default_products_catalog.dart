@@ -987,4 +987,899 @@ const Map<String, Map<String, dynamic>> defaultIndianProductsCatalog = {
     'name': "Crax Corn Rings Tangy Tomato 38g",
     'mrp': 10.00,
   },
+  '8901764011244': {
+    'barcode': '8901764011244',
+    'name': "Coca-Cola Original Taste Cold Drink 250ml Can",
+    'mrp': 35.00,
+  },
+  '8901764014245': {
+    'barcode': '8901764014245',
+    'name': "Coca-Cola Original Taste Cold Drink 2L",
+    'mrp': 95.00,
+  },
+  '8901764021243': {
+    'barcode': '8901764021243',
+    'name': "Thums Up Charged Carbonated Drink 250ml Can",
+    'mrp': 35.00,
+  },
+  '8901764024244': {
+    'barcode': '8901764024244',
+    'name': "Thums Up Charged Carbonated Drink 2.25L",
+    'mrp': 100.00,
+  },
+  '8901764031242': {
+    'barcode': '8901764031242',
+    'name': "Sprite Lemon-Lime Cold Drink 250ml Can",
+    'mrp': 35.00,
+  },
+  '8901764034243': {
+    'barcode': '8901764034243',
+    'name': "Sprite Lemon-Lime Cold Drink 2.25L",
+    'mrp': 100.00,
+  },
+  '8901764042248': {
+    'barcode': '8901764042248',
+    'name': "Limca Lemon Drink 750ml",
+    'mrp': 45.00,
+  },
+  '8901764044242': {
+    'barcode': '8901764044242',
+    'name': "Limca Lemon Drink 2L",
+    'mrp': 95.00,
+  },
+  '8901764052247': {
+    'barcode': '8901764052247',
+    'name': "Fanta Orange Flavoured Drink 750ml",
+    'mrp': 45.00,
+  },
+  '8901764054241': {
+    'barcode': '8901764054241',
+    'name': "Fanta Orange Flavoured Drink 2L",
+    'mrp': 95.00,
+  },
+  '8901764062246': {
+    'barcode': '8901764062246',
+    'name': "Maaza Mango Fruit Drink 600ml",
+    'mrp': 42.00,
+  },
+  '8901764061249': {
+    'barcode': '8901764061249',
+    'name': "Maaza Mango Fruit Drink 250ml Pet",
+    'mrp': 20.00,
+  },
+  '8901764063243': {
+    'barcode': '8901764063243',
+    'name': "Maaza Mango Fruit Drink 1.2L",
+    'mrp': 75.00,
+  },
+  '8901764060242': {
+    'barcode': '8901764060242',
+    'name': "Maaza Mango Fruit Drink 150ml Tetra",
+    'mrp': 10.00,
+  },
+  '8901719201010': {
+    'barcode': '8901719201010',
+    'name': "Frooti Fresh 'N' Juicy Mango Drink 160ml Tetra",
+    'mrp': 10.00,
+  },
+  '8901719201027': {
+    'barcode': '8901719201027',
+    'name': "Frooti Fresh 'N' Juicy Mango Drink 200ml Tetra",
+    'mrp': 15.00,
+  },
+  '8901719201034': {
+    'barcode': '8901719201034',
+    'name': "Frooti Fresh 'N' Juicy Mango Drink 600ml Bottle",
+    'mrp': 38.00,
+  },
+  '8901719201041': {
+    'barcode': '8901719201041',
+    'name': "Frooti Fresh 'N' Juicy Mango Drink 1.2L Bottle",
+    'mrp': 70.00,
+  },
+  '8901719201058': {
+    'barcode': '8901719201058',
+    'name': "Frooti Fresh 'N' Juicy Mango Drink 2L Bottle",
+    'mrp': 110.00,
+  },
+  '8901719202017': {
+    'barcode': '8901719202017',
+    'name': "Appy Fizz Sparkling Apple Juice Drink 160ml Can",
+    'mrp': 10.00,
+  },
+  '8901719202024': {
+    'barcode': '8901719202024',
+    'name': "Appy Fizz Sparkling Apple Juice Drink 250ml Pet",
+    'mrp': 20.00,
+  },
+  '8901719202031': {
+    'barcode': '8901719202031',
+    'name': "Appy Fizz Sparkling Apple Juice Drink 600ml Pet",
+    'mrp': 40.00,
+  },
+  '8901491201018': {
+    'barcode': '8901491201018',
+    'name': "Pepsi Cola Cold Drink 750ml Bottle",
+    'mrp': 45.00,
+  },
+  '8901491201025': {
+    'barcode': '8901491201025',
+    'name': "Pepsi Cola Cold Drink 250ml Can",
+    'mrp': 35.00,
+  },
+  '8901491202015': {
+    'barcode': '8901491202015',
+    'name': "Mountain Dew Soft Drink 750ml Bottle",
+    'mrp': 45.00,
+  },
+  '8901491202022': {
+    'barcode': '8901491202022',
+    'name': "Mountain Dew Soft Drink 250ml Bottle",
+    'mrp': 20.00,
+  },
+  '8901491203012': {
+    'barcode': '8901491203012',
+    'name': "7UP Nimbooz Refreshing Lime Juice 250ml",
+    'mrp': 20.00,
+  },
+  '8901491203029': {
+    'barcode': '8901491203029',
+    'name': "7UP Refreshing Lemon Soda 750ml Bottle",
+    'mrp': 45.00,
+  },
+  '8901491204019': {
+    'barcode': '8901491204019',
+    'name': "Mirinda Orange Flavour Drink 750ml Bottle",
+    'mrp': 45.00,
+  },
+  '8901491205016': {
+    'barcode': '8901491205016',
+    'name': "Sting Energy Drink Gold Rush 250ml Bottle",
+    'mrp': 20.00,
+  },
+  '8901491205023': {
+    'barcode': '8901491205023',
+    'name': "Sting Energy Drink Gold Rush 250ml Can",
+    'mrp': 35.00,
+  },
+  '7622201701018': {
+    'barcode': '7622201701018',
+    'name': "Cadbury Dairy Milk Chocolate Bar 13.2g",
+    'mrp': 10.00,
+  },
+  '7622201701025': {
+    'barcode': '7622201701025',
+    'name': "Cadbury Dairy Milk Chocolate Bar 24g",
+    'mrp': 20.00,
+  },
+  '7622201701032': {
+    'barcode': '7622201701032',
+    'name': "Cadbury Dairy Milk Chocolate Bar 52g",
+    'mrp': 45.00,
+  },
+  '7622201701049': {
+    'barcode': '7622201701049',
+    'name': "Cadbury Dairy Milk Silk Chocolate Bar 60g",
+    'mrp': 80.00,
+  },
+  '7622201701056': {
+    'barcode': '7622201701056',
+    'name': "Cadbury Dairy Milk Silk Roast Almond 58g",
+    'mrp': 90.00,
+  },
+  '7622201701063': {
+    'barcode': '7622201701063',
+    'name': "Cadbury Dairy Milk Silk Fruit & Nut 55g",
+    'mrp': 90.00,
+  },
+  '7622201702015': {
+    'barcode': '7622201702015',
+    'name': "Cadbury 5 Star Chocolate Bar 10.1g",
+    'mrp': 5.00,
+  },
+  '7622201702022': {
+    'barcode': '7622201702022',
+    'name': "Cadbury 5 Star Chocolate Bar 20g",
+    'mrp': 10.00,
+  },
+  '7622201702039': {
+    'barcode': '7622201702039',
+    'name': "Cadbury 5 Star 3D Chocolate Bar 40g",
+    'mrp': 20.00,
+  },
+  '7622201703012': {
+    'barcode': '7622201703012',
+    'name': "Cadbury Perk Glucose Wafer Chocolate 13g",
+    'mrp': 5.00,
+  },
+  '7622201703029': {
+    'barcode': '7622201703029',
+    'name': "Cadbury Perk Twin Wafer Chocolate 28g",
+    'mrp': 10.00,
+  },
+  '8901058841015': {
+    'barcode': '8901058841015',
+    'name': "Nestle KitKat 2 Finger Wafer Bar 12.8g",
+    'mrp': 10.00,
+  },
+  '8901058841022': {
+    'barcode': '8901058841022',
+    'name': "Nestle KitKat 4 Finger Wafer Bar 37.3g",
+    'mrp': 25.00,
+  },
+  '8901058841039': {
+    'barcode': '8901058841039',
+    'name': "Nestle KitKat Grand 4 Finger Wafer Bar 57g",
+    'mrp': 45.00,
+  },
+  '8901058840025': {
+    'barcode': '8901058840025',
+    'name': "Nestle Munch Crunchy Wafer Bar 10.1g",
+    'mrp': 5.00,
+  },
+  '8901058840032': {
+    'barcode': '8901058840032',
+    'name': "Nestle Munch Crunchy Wafer Bar 32g",
+    'mrp': 20.00,
+  },
+  '8902442001016': {
+    'barcode': '8902442001016',
+    'name': "Snickers Peanut Chocolate Bar 22g",
+    'mrp': 20.00,
+  },
+  '8902442001023': {
+    'barcode': '8902442001023',
+    'name': "Snickers Peanut Chocolate Bar 40g",
+    'mrp': 35.00,
+  },
+  '8901396383017': {
+    'barcode': '8901396383017',
+    'name': "Dettol Original Germ Protection Bathing Bar 45g",
+    'mrp': 10.00,
+  },
+  '8901396383024': {
+    'barcode': '8901396383024',
+    'name': "Dettol Original Germ Protection Bathing Bar 75g",
+    'mrp': 38.00,
+  },
+  '8901396383031': {
+    'barcode': '8901396383031',
+    'name': "Dettol Original Germ Protection Bathing Bar 125g",
+    'mrp': 58.00,
+  },
+  '8901396383048': {
+    'barcode': '8901396383048',
+    'name': "Dettol Skincare Moisturizing Bathing Bar 75g",
+    'mrp': 40.00,
+  },
+  '8901396383055': {
+    'barcode': '8901396383055',
+    'name': "Dettol Cool Mint Bathing Bar 75g",
+    'mrp': 40.00,
+  },
+  '8901030383794': {
+    'barcode': '8901030383794',
+    'name': "Lifebuoy Total 10 Germ Protection Soap 45g",
+    'mrp': 10.00,
+  },
+  '8901030383800': {
+    'barcode': '8901030383800',
+    'name': "Lifebuoy Total 10 Germ Protection Soap 75g",
+    'mrp': 36.00,
+  },
+  '8901030383817': {
+    'barcode': '8901030383817',
+    'name': "Lifebuoy Total 10 Germ Protection Soap 125g",
+    'mrp': 52.00,
+  },
+  '8901030381011': {
+    'barcode': '8901030381011',
+    'name': "Lux Rose & Vitamin E Glowing Skin Soap 45g",
+    'mrp': 10.00,
+  },
+  '8901030381028': {
+    'barcode': '8901030381028',
+    'name': "Lux Rose & Vitamin E Glowing Skin Soap 75g",
+    'mrp': 38.00,
+  },
+  '8901030381035': {
+    'barcode': '8901030381035',
+    'name': "Lux Rose & Vitamin E Glowing Skin Soap 100g",
+    'mrp': 50.00,
+  },
+  '8901030382018': {
+    'barcode': '8901030382018',
+    'name': "Dove White Cream Beauty Bathing Bar 50g",
+    'mrp': 30.00,
+  },
+  '8901030382025': {
+    'barcode': '8901030382025',
+    'name': "Dove White Cream Beauty Bathing Bar 75g",
+    'mrp': 56.00,
+  },
+  '8901030382032': {
+    'barcode': '8901030382032',
+    'name': "Dove White Cream Beauty Bathing Bar 100g",
+    'mrp': 75.00,
+  },
+  '8901030384012': {
+    'barcode': '8901030384012',
+    'name': "Pears Pure & Gentle Glycerin Bathing Bar 75g",
+    'mrp': 45.00,
+  },
+  '8901030384029': {
+    'barcode': '8901030384029',
+    'name': "Pears Pure & Gentle Glycerin Bathing Bar 125g",
+    'mrp': 78.00,
+  },
+  '8901242001018': {
+    'barcode': '8901242001018',
+    'name': "Cinthol Original Deodorant Bathing Soap 100g",
+    'mrp': 45.00,
+  },
+  '8901242001025': {
+    'barcode': '8901242001025',
+    'name': "Cinthol Cool Menthol Refreshing Bathing Soap 100g",
+    'mrp': 48.00,
+  },
+  '8901207010017': {
+    'barcode': '8901207010017',
+    'name': "Santoor Sandal & Turmeric Bathing Soap 45g",
+    'mrp': 10.00,
+  },
+  '8901207010024': {
+    'barcode': '8901207010024',
+    'name': "Santoor Sandal & Turmeric Bathing Soap 75g",
+    'mrp': 38.00,
+  },
+  '8901207010031': {
+    'barcode': '8901207010031',
+    'name': "Santoor Sandal & Turmeric Bathing Soap 100g",
+    'mrp': 48.00,
+  },
+  '8906006010014': {
+    'barcode': '8906006010014',
+    'name': "Medimix Ayurvedic 18 Herbs Classic Soap 75g",
+    'mrp': 35.00,
+  },
+  '8906006010021': {
+    'barcode': '8906006010021',
+    'name': "Medimix Ayurvedic 18 Herbs Classic Soap 125g",
+    'mrp': 55.00,
+  },
+  '8901314010018': {
+    'barcode': '8901314010018',
+    'name': "Colgate Strong Teeth Dental Cream Toothpaste 40g",
+    'mrp': 20.00,
+  },
+  '8901314010025': {
+    'barcode': '8901314010025',
+    'name': "Colgate Strong Teeth Dental Cream Toothpaste 100g",
+    'mrp': 60.00,
+  },
+  '8901314010032': {
+    'barcode': '8901314010032',
+    'name': "Colgate Strong Teeth Dental Cream Toothpaste 200g",
+    'mrp': 115.00,
+  },
+  '8901314010049': {
+    'barcode': '8901314010049',
+    'name': "Colgate Strong Teeth Dental Cream Toothpaste 500g",
+    'mrp': 230.00,
+  },
+  '8901314020017': {
+    'barcode': '8901314020017',
+    'name': "Colgate MaxFresh Peppermint Ice Gel Toothpaste 45g",
+    'mrp': 25.00,
+  },
+  '8901314020024': {
+    'barcode': '8901314020024',
+    'name': "Colgate MaxFresh Peppermint Ice Gel Toothpaste 80g",
+    'mrp': 60.00,
+  },
+  '8901314020031': {
+    'barcode': '8901314020031',
+    'name': "Colgate MaxFresh Peppermint Ice Gel Toothpaste 150g",
+    'mrp': 115.00,
+  },
+  '8901030410018': {
+    'barcode': '8901030410018',
+    'name': "Pepsodent 2-in-1 Germi Check Toothpaste 40g",
+    'mrp': 20.00,
+  },
+  '8901030410025': {
+    'barcode': '8901030410025',
+    'name': "Pepsodent 2-in-1 Germi Check Toothpaste 100g",
+    'mrp': 55.00,
+  },
+  '8901030410032': {
+    'barcode': '8901030410032',
+    'name': "Pepsodent 2-in-1 Germi Check Toothpaste 150g",
+    'mrp': 95.00,
+  },
+  '8901030420017': {
+    'barcode': '8901030420017',
+    'name': "Close Up Everfresh Red Hot Gel Toothpaste 40g",
+    'mrp': 20.00,
+  },
+  '8901030420024': {
+    'barcode': '8901030420024',
+    'name': "Close Up Everfresh Red Hot Gel Toothpaste 80g",
+    'mrp': 55.00,
+  },
+  '8901030420031': {
+    'barcode': '8901030420031',
+    'name': "Close Up Everfresh Red Hot Gel Toothpaste 150g",
+    'mrp': 110.00,
+  },
+  '8901088010014': {
+    'barcode': '8901088010014',
+    'name': "Sensodyne Fresh Gel Sensitive Toothpaste 75g",
+    'mrp': 145.00,
+  },
+  '8901207020016': {
+    'barcode': '8901207020016',
+    'name': "Dabur Red Ayurvedic Toothpaste 50g",
+    'mrp': 25.00,
+  },
+  '8901207020023': {
+    'barcode': '8901207020023',
+    'name': "Dabur Red Ayurvedic Toothpaste 100g",
+    'mrp': 60.00,
+  },
+  '8901207020030': {
+    'barcode': '8901207020030',
+    'name': "Dabur Red Ayurvedic Toothpaste 200g",
+    'mrp': 115.00,
+  },
+  '8904109401015': {
+    'barcode': '8904109401015',
+    'name': "Patanjali Dant Kanti Ayurvedic Toothpaste 100g",
+    'mrp': 50.00,
+  },
+  '8904109401022': {
+    'barcode': '8904109401022',
+    'name': "Patanjali Dant Kanti Ayurvedic Toothpaste 200g",
+    'mrp': 95.00,
+  },
+  '8901030510015': {
+    'barcode': '8901030510015',
+    'name': "Clinic Plus Strong & Long Health Shampoo 80ml",
+    'mrp': 52.00,
+  },
+  '8901030510022': {
+    'barcode': '8901030510022',
+    'name': "Clinic Plus Strong & Long Health Shampoo 175ml",
+    'mrp': 120.00,
+  },
+  '8901030510039': {
+    'barcode': '8901030510039',
+    'name': "Clinic Plus Strong & Long Health Shampoo 340ml",
+    'mrp': 220.00,
+  },
+  '8901030520014': {
+    'barcode': '8901030520014',
+    'name': "Sunsilk Stunning Black Shine Shampoo 80ml",
+    'mrp': 55.00,
+  },
+  '8901030520021': {
+    'barcode': '8901030520021',
+    'name': "Sunsilk Stunning Black Shine Shampoo 180ml",
+    'mrp': 125.00,
+  },
+  '8901030530013': {
+    'barcode': '8901030530013',
+    'name': "Dove Daily Shine Damage Therapy Shampoo 80ml",
+    'mrp': 80.00,
+  },
+  '8901030530020': {
+    'barcode': '8901030530020',
+    'name': "Dove Daily Shine Damage Therapy Shampoo 180ml",
+    'mrp': 185.00,
+  },
+  '8901242010010': {
+    'barcode': '8901242010010',
+    'name': "Head & Shoulders Cool Menthol Shampoo 72ml",
+    'mrp': 85.00,
+  },
+  '8901242010027': {
+    'barcode': '8901242010027',
+    'name': "Head & Shoulders Cool Menthol Shampoo 180ml",
+    'mrp': 180.00,
+  },
+  '8901242020019': {
+    'barcode': '8901242020019',
+    'name': "Pantene Pro-V Hair Fall Control Shampoo 80ml",
+    'mrp': 85.00,
+  },
+  '8901242020026': {
+    'barcode': '8901242020026',
+    'name': "Pantene Pro-V Hair Fall Control Shampoo 180ml",
+    'mrp': 190.00,
+  },
+  '8901088020013': {
+    'barcode': '8901088020013',
+    'name': "Parachute 100% Pure Coconut Hair Oil 100ml",
+    'mrp': 42.00,
+  },
+  '8901088020020': {
+    'barcode': '8901088020020',
+    'name': "Parachute 100% Pure Coconut Hair Oil 175ml",
+    'mrp': 75.00,
+  },
+  '8901088020037': {
+    'barcode': '8901088020037',
+    'name': "Parachute 100% Pure Coconut Hair Oil 250ml",
+    'mrp': 105.00,
+  },
+  '8901088020044': {
+    'barcode': '8901088020044',
+    'name': "Parachute 100% Pure Coconut Hair Oil 500ml",
+    'mrp': 195.00,
+  },
+  '8901207030015': {
+    'barcode': '8901207030015',
+    'name': "Dabur Amla Hair Oil 100ml Bottle",
+    'mrp': 48.00,
+  },
+  '8901207030022': {
+    'barcode': '8901207030022',
+    'name': "Dabur Amla Hair Oil 180ml Bottle",
+    'mrp': 85.00,
+  },
+  '8901207030039': {
+    'barcode': '8901207030039',
+    'name': "Dabur Amla Hair Oil 275ml Bottle",
+    'mrp': 125.00,
+  },
+  '8901242030018': {
+    'barcode': '8901242030018',
+    'name': "Bajaj Almond Drops Non-Sticky Hair Oil 100ml",
+    'mrp': 70.00,
+  },
+  '8901242030025': {
+    'barcode': '8901242030025',
+    'name': "Bajaj Almond Drops Non-Sticky Hair Oil 200ml",
+    'mrp': 135.00,
+  },
+  '8901030610012': {
+    'barcode': '8901030610012',
+    'name': "Surf Excel Easy Wash Detergent Powder 500g",
+    'mrp': 74.00,
+  },
+  '8901030610029': {
+    'barcode': '8901030610029',
+    'name': "Surf Excel Easy Wash Detergent Powder 1kg",
+    'mrp': 142.00,
+  },
+  '8901030620011': {
+    'barcode': '8901030620011',
+    'name': "Surf Excel Quick Wash Detergent Powder 500g",
+    'mrp': 110.00,
+  },
+  '8901030620028': {
+    'barcode': '8901030620028',
+    'name': "Surf Excel Quick Wash Detergent Powder 1kg",
+    'mrp': 215.00,
+  },
+  '8901030630010': {
+    'barcode': '8901030630010',
+    'name': "Surf Excel Stain Eraser Detergent Bar 150g",
+    'mrp': 20.00,
+  },
+  '8901030630027': {
+    'barcode': '8901030630027',
+    'name': "Surf Excel Stain Eraser Detergent Bar 250g",
+    'mrp': 32.00,
+  },
+  '8901030640019': {
+    'barcode': '8901030640019',
+    'name': "Rin Advanced Detergent Bar 140g",
+    'mrp': 10.00,
+  },
+  '8901030640026': {
+    'barcode': '8901030640026',
+    'name': "Rin Advanced Detergent Bar 250g",
+    'mrp': 20.00,
+  },
+  '8901030650018': {
+    'barcode': '8901030650018',
+    'name': "Wheel Active 2in1 Detergent Powder 500g",
+    'mrp': 34.00,
+  },
+  '8901030650025': {
+    'barcode': '8901030650025',
+    'name': "Wheel Active 2in1 Detergent Powder 1kg",
+    'mrp': 68.00,
+  },
+  '8901242040017': {
+    'barcode': '8901242040017',
+    'name': "Ariel Complete Detergent Powder 500g",
+    'mrp': 75.00,
+  },
+  '8901242040024': {
+    'barcode': '8901242040024',
+    'name': "Ariel Complete Detergent Powder 1kg",
+    'mrp': 145.00,
+  },
+  '8901242040031': {
+    'barcode': '8901242040031',
+    'name': "Ariel Matic Front Load Detergent Powder 1kg",
+    'mrp': 260.00,
+  },
+  '8901242050016': {
+    'barcode': '8901242050016',
+    'name': "Tide Plus Extra Power Jasmine & Rose 500g",
+    'mrp': 60.00,
+  },
+  '8901242050023': {
+    'barcode': '8901242050023',
+    'name': "Tide Plus Extra Power Jasmine & Rose 1kg",
+    'mrp': 118.00,
+  },
+  '8901030660017': {
+    'barcode': '8901030660017',
+    'name': "Vim Dishwash Bar With Lemon 135g",
+    'mrp': 10.00,
+  },
+  '8901030660024': {
+    'barcode': '8901030660024',
+    'name': "Vim Dishwash Bar With Lemon 200g",
+    'mrp': 20.00,
+  },
+  '8901030660031': {
+    'barcode': '8901030660031',
+    'name': "Vim Dishwash Bar With Lemon 300g",
+    'mrp': 30.00,
+  },
+  '8901030660048': {
+    'barcode': '8901030660048',
+    'name': "Vim Dishwash Liquid Gel Lemon 250ml",
+    'mrp': 55.00,
+  },
+  '8901030660055': {
+    'barcode': '8901030660055',
+    'name': "Vim Dishwash Liquid Gel Lemon 500ml",
+    'mrp': 105.00,
+  },
+  '8901396110019': {
+    'barcode': '8901396110019',
+    'name': "Harpic Power Plus Original Toilet Cleaner 200ml",
+    'mrp': 42.00,
+  },
+  '8901396110026': {
+    'barcode': '8901396110026',
+    'name': "Harpic Power Plus Original Toilet Cleaner 500ml",
+    'mrp': 93.00,
+  },
+  '8901396110033': {
+    'barcode': '8901396110033',
+    'name': "Harpic Power Plus Original Toilet Cleaner 1L",
+    'mrp': 180.00,
+  },
+  '8901396120018': {
+    'barcode': '8901396120018',
+    'name': "Lizol Disinfectant Surface Cleaner Citrus 200ml",
+    'mrp': 42.00,
+  },
+  '8901396120025': {
+    'barcode': '8901396120025',
+    'name': "Lizol Disinfectant Surface Cleaner Citrus 500ml",
+    'mrp': 98.00,
+  },
+  '8901396120032': {
+    'barcode': '8901396120032',
+    'name': "Lizol Disinfectant Surface Cleaner Citrus 1L",
+    'mrp': 195.00,
+  },
+  '8901396130017': {
+    'barcode': '8901396130017',
+    'name': "Colin Glass & Household Surface Cleaner 250ml",
+    'mrp': 58.00,
+  },
+  '8901396130024': {
+    'barcode': '8901396130024',
+    'name': "Colin Glass & Household Surface Cleaner 500ml",
+    'mrp': 105.00,
+  },
+  '8901242060015': {
+    'barcode': '8901242060015',
+    'name': "Good Knight Gold Flash Liquid Vaporizer Refill 45ml",
+    'mrp': 82.00,
+  },
+  '8901242070014': {
+    'barcode': '8901242070014',
+    'name': "All Out Ultra Power+ Mosquito Repellent Refill 45ml",
+    'mrp': 80.00,
+  },
+  '8901030710019': {
+    'barcode': '8901030710019',
+    'name': "Tata Salt Vacuum Evaporated Iodised Salt 1kg",
+    'mrp': 28.00,
+  },
+  '8901030710026': {
+    'barcode': '8901030710026',
+    'name': "Tata Salt Lite Low Sodium Iodised Salt 1kg",
+    'mrp': 45.00,
+  },
+  '8901725181016': {
+    'barcode': '8901725181016',
+    'name': "Aashirvaad Superior MP Shudh Chakki Atta 5kg",
+    'mrp': 245.00,
+  },
+  '8901725181023': {
+    'barcode': '8901725181023',
+    'name': "Aashirvaad Superior MP Shudh Chakki Atta 10kg",
+    'mrp': 475.00,
+  },
+  '8906007280010': {
+    'barcode': '8906007280010',
+    'name': "Fortune Sunlite Refined Sunflower Oil 1L Pouch",
+    'mrp': 145.00,
+  },
+  '8906007280027': {
+    'barcode': '8906007280027',
+    'name': "Fortune Premium Kachi Ghani Pure Mustard Oil 1L",
+    'mrp': 155.00,
+  },
+  '8901088030012': {
+    'barcode': '8901088030012',
+    'name': "Saffola Gold Pro Healthy Lifestyle Edible Oil 1L",
+    'mrp': 165.00,
+  },
+  '8901088030029': {
+    'barcode': '8901088030029',
+    'name': "Saffola Total Pro Heart Conscious Edible Oil 1L",
+    'mrp': 195.00,
+  },
+  '8901396210016': {
+    'barcode': '8901396210016',
+    'name': "MDH Deggi Mirch Red Chilli Powder 100g",
+    'mrp': 85.00,
+  },
+  '8901396210023': {
+    'barcode': '8901396210023',
+    'name': "MDH Chunky Chat Masala 100g Box",
+    'mrp': 75.00,
+  },
+  '8901396210030': {
+    'barcode': '8901396210030',
+    'name': "MDH Kitchen King Blended Spices 100g Box",
+    'mrp': 82.00,
+  },
+  '8901396220015': {
+    'barcode': '8901396220015',
+    'name': "Everest Garam Masala Powder 100g Box",
+    'mrp': 82.00,
+  },
+  '8901396220022': {
+    'barcode': '8901396220022',
+    'name': "Everest Chaat Masala Powder 100g Box",
+    'mrp': 70.00,
+  },
+  '8901396220039': {
+    'barcode': '8901396220039',
+    'name': "Everest Turmeric Powder Haldi 100g Pouch",
+    'mrp': 34.00,
+  },
+  '8901396220046': {
+    'barcode': '8901396220046',
+    'name': "Everest Coriander Powder Dhaniya 100g Pouch",
+    'mrp': 36.00,
+  },
+  '8901242080013': {
+    'barcode': '8901242080013',
+    'name': "Catch Red Chilli Powder Sprinkler 100g",
+    'mrp': 58.00,
+  },
+  '8901242080020': {
+    'barcode': '8901242080020',
+    'name': "Catch Table Salt Table Dispenser Sprinkler 200g",
+    'mrp': 35.00,
+  },
+  '8901242080037': {
+    'barcode': '8901242080037',
+    'name': "Catch Pure Black Pepper Sprinkler 100g",
+    'mrp': 105.00,
+  },
+  '8901058852516': {
+    'barcode': '8901058852516',
+    'name': "Nestle Maggi 2-Minute Masala Noodles 280g (4 Pack)",
+    'mrp': 56.00,
+  },
+  '8901725191015': {
+    'barcode': '8901725191015',
+    'name': "Sunfeast YiPPee! Magic Masala Instant Noodles 65g",
+    'mrp': 12.00,
+  },
+  '8901725191022': {
+    'barcode': '8901725191022',
+    'name': "Sunfeast YiPPee! Magic Masala Instant Noodles 130g",
+    'mrp': 24.00,
+  },
+  '8901725191039': {
+    'barcode': '8901725191039',
+    'name': "Sunfeast YiPPee! Magic Masala Instant Noodles 240g",
+    'mrp': 48.00,
+  },
+  '8901030810016': {
+    'barcode': '8901030810016',
+    'name': "Knorr Classic Mixed Vegetable Soup 43g",
+    'mrp': 40.00,
+  },
+  '8901030810023': {
+    'barcode': '8901030810023',
+    'name': "Knorr Classic Thick Tomato Soup 53g",
+    'mrp': 40.00,
+  },
+  '8901030910013': {
+    'barcode': '8901030910013',
+    'name': "Tata Tea Premium Desh Ki Chai 250g",
+    'mrp': 125.00,
+  },
+  '8901030910020': {
+    'barcode': '8901030910020',
+    'name': "Tata Tea Premium Desh Ki Chai 500g",
+    'mrp': 245.00,
+  },
+  '8901030910037': {
+    'barcode': '8901030910037',
+    'name': "Tata Tea Gold Rich Taste & Irresistible Aroma 250g",
+    'mrp': 150.00,
+  },
+  '8901030920012': {
+    'barcode': '8901030920012',
+    'name': "Brooke Bond Red Label Tea 250g",
+    'mrp': 130.00,
+  },
+  '8901030920029': {
+    'barcode': '8901030920029',
+    'name': "Brooke Bond Red Label Tea 500g",
+    'mrp': 255.00,
+  },
+  '8901030930011': {
+    'barcode': '8901030930011',
+    'name': "Brooke Bond Taj Mahal Tea 250g",
+    'mrp': 185.00,
+  },
+  '8901242090012': {
+    'barcode': '8901242090012',
+    'name': "Wagh Bakri Premium Leaf Tea 250g Pouch",
+    'mrp': 135.00,
+  },
+  '8901242090029': {
+    'barcode': '8901242090029',
+    'name': "Wagh Bakri Premium Leaf Tea 500g Pouch",
+    'mrp': 265.00,
+  },
+  '8901058861013': {
+    'barcode': '8901058861013',
+    'name': "Nescafe Classic 100% Pure Instant Coffee 25g",
+    'mrp': 85.00,
+  },
+  '8901058861020': {
+    'barcode': '8901058861020',
+    'name': "Nescafe Classic 100% Pure Instant Coffee 50g Glass Jar",
+    'mrp': 160.00,
+  },
+  '8901058861037': {
+    'barcode': '8901058861037',
+    'name': "Nescafe Classic 100% Pure Instant Coffee 100g Pouch",
+    'mrp': 310.00,
+  },
+  '8901030940010': {
+    'barcode': '8901030940010',
+    'name': "BRU Instant Coffee Chicory Mix 25g Pouch",
+    'mrp': 75.00,
+  },
+  '8901030940027': {
+    'barcode': '8901030940027',
+    'name': "BRU Instant Coffee Chicory Mix 50g Glass Jar",
+    'mrp': 140.00,
+  },
+  '8901030940034': {
+    'barcode': '8901030940034',
+    'name': "BRU Instant Coffee Chicory Mix 100g Pouch",
+    'mrp': 275.00,
+  },
 };

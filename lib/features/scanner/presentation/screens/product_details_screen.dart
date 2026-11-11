@@ -29,6 +29,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   bool _loading = true;
   bool _isKnownProduct = false;
+  bool _isReferenceEstimate = false;
+  String? _productSource;
+  String? _mrpDisclaimer;
   String? _loadError;
   Gs1BrandInfo? _detectedBrandInfo;
   File? _frontImage;
@@ -52,6 +55,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
+      _productSource = cached['source']?.toString();
+      _mrpDisclaimer = cached['mrpDisclaimer']?.toString();
+      _isReferenceEstimate = cached['isReferenceEstimate'] == true || _isKnownProduct;
       _loading = false;
     } else {
       _fetchProduct();
@@ -75,6 +81,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
+      _productSource = product['source']?.toString();
+      _mrpDisclaimer = product['mrpDisclaimer']?.toString();
+      _isReferenceEstimate = product['isReferenceEstimate'] == true || _isKnownProduct;
       _loadError = null;
 
       if (_nameController.text.trim().isEmpty) {
@@ -117,15 +126,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final charged = num.tryParse(_chargedPriceController.text.trim());
     if (mrp == null || charged == null || mrp <= 0 || charged <= 0) return;
 
-    // Cache locally for instant 0ms retrieval on repeated scans
+    // Cache locally for fast retrieval on repeated scans in this session
     priceShieldApi.cacheProduct(widget.barcode, {
       'barcode': widget.barcode,
       'name': _nameController.text.trim(),
       'mrp': mrp,
+      'source': _productSource ?? 'user_verified_session',
+      'isReferenceEstimate': true,
     });
 
     if (!_isKnownProduct && AuthSession.isSignedIn) {
-      // Auto-submit to community catalog asynchronously (+50 Scout points)
+      // Queue for backend moderation review asynchronously
       priceShieldApi.createProductSubmission(
         barcode: widget.barcode,
         productName: _nameController.text.trim(),
@@ -311,7 +322,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Thank you! Product submitted for community review.\n🛡️ +50 ShieldPoints Earned! (Scout Level 1)'),
+            content: Text('Submitted for moderation review. Approved updates help keep the catalog accurate.'),
             backgroundColor: PriceShieldColors.success,
             duration: Duration(seconds: 4),
           ),
@@ -338,6 +349,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
+  String _sourceLabel(String? source) {
+    switch (source) {
+      case 'offline_reference_catalog':
+        return 'Offline Reference Catalog';
+      case 'catalog_db':
+        return 'PriceShield Reference Catalog';
+      case 'open_food_facts':
+        return 'Open Food Facts';
+      case 'open_beauty_facts':
+        return 'Open Beauty Facts';
+      case 'open_products_facts':
+        return 'Open Products Facts';
+      default:
+        return 'Reference Catalog';
+    }
+  }
+
   InputDecoration _decoration(String label, {String? prefix}) => InputDecoration(
         labelText: label,
         prefixText: prefix,
@@ -359,9 +387,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final isFullyVerified = _isKnownProduct && hasName && hasMrp;
     final manualEntry = !isFullyVerified;
     final bannerMessage = isFullyVerified
-        ? 'Product details found. Verify the MRP printed on the package before continuing.'
+        ? (_mrpDisclaimer ??
+            'Catalog reference (${_sourceLabel(_productSource)}). Always verify the MRP printed on the physical package before checking.')
         : hasName
-            ? 'Product found! Enter or verify the printed MRP from the package.'
+            ? 'Product reference found! Enter or verify the printed MRP from the package.'
             : 'Product not found in catalog. Enter the name and printed MRP from the package.';
     final bannerColor = isFullyVerified
         ? PriceShieldColors.mint
@@ -421,7 +450,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Contribute to PriceShield Catalog: Verify and submit to earn +50 Shield Scout points!',
+                          'Contribute to PriceShield Catalog: Submit verified packet details for moderation review.',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -493,6 +522,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   return amount == null || amount <= 0 ? 'Enter a valid printed MRP' : null;
                 },
               ),
+              if (_isReferenceEstimate && _isKnownProduct) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 15, color: Color(0xff0284C7)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Reference estimate (${_sourceLabel(_productSource)}) — MRP varies by batch/pack; confirm on the packet.',
+                        style: const TextStyle(fontSize: 11, color: Color(0xff0369A1)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -640,7 +684,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             const SizedBox(height: 2),
                             Text(
                               _isStickerFlagged
-                                  ? 'Flagged: Rule 18(2) strictly prohibits altering or pasting stickers over printed MRP.'
+                                  ? 'Flagged: Pasting price stickers over printed MRP is prohibited under Rule 18(2) — attach clear packet photo.'
                                   : 'Tap if shop placed a price sticker or marker over original MRP',
                               style: TextStyle(
                                 fontSize: 11,

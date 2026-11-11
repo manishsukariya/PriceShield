@@ -49,8 +49,8 @@ class DeescalationVoiceService {
   static const String englishScript =
       'Attention please. As per Rule 18(2) of the Legal Metrology Packaged Commodities Rules 2011, '
       'Maximum Retail Price includes all taxes and refrigeration expenses. '
-      'Under the Jan Vishwas Act 2023, charging any extra cooling fee is a statutory violation '
-      'attracting penalties up to 5 lakh rupees. Please accept only the printed MRP.';
+      'Under the Jan Vishwas Act 2023, charging an extra cooling fee above printed MRP '
+      'can attract penalties up to 5 lakh rupees. Please charge only the printed MRP.';
 
   Future<void> _initTts() async {
     if (_initialized || _isDisposed) return;

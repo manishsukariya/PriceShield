@@ -28,7 +28,7 @@ void main() {
       );
 
       // Verify Authority Header
-      expect(find.textContaining('OFFICIAL STATUTORY LAW CARD'), findsOneWidget);
+      expect(find.textContaining('CONSUMER RIGHTS LAW CARD'), findsOneWidget);
 
       // Verify Product and Price breakdown
       expect(find.text('Sprite 750ml'), findsOneWidget);

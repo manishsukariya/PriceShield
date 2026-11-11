@@ -17,7 +17,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _loading = true, _uploading = false;
+  bool _loading = true, _uploading = false, _deleting = false;
   int _total = 0, _resolved = 0;
   String? _photoUrl;
 
@@ -36,6 +36,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } on PriceShieldApiException catch (error) {
       if (error.isUnauthorized) await AuthSession.clear();
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete account permanently?'),
+        content: const Text(
+          'This permanently deletes your PriceShield profile, scan history, filed complaints, and product submissions. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await authService.deleteAccount();
+      if (mounted) {
+        _message('Your account and associated data have been deleted.');
+      }
+    } on PriceShieldApiException catch (error) {
+      if (mounted) _message(error.message);
+    } on PriceShieldAuthException catch (error) {
+      if (mounted) _message(error.message);
+    } catch (_) {
+      if (mounted) _message('Could not delete your account. Please try again.');
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -117,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Create an account to officially register complaints, sync scan history across devices, and earn +50 Scout points for community product additions.',
+                    'Create an account to save scan history, submit complaints, and contribute products for community moderation review (rewards & badges planned).',
                     style: TextStyle(color: PriceShieldColors.muted, fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 18),
@@ -151,7 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 8),
                   _featureRow(Icons.lock_outline_rounded, const Color(0xff94A3B8), 'Formal Complaint Tracking & Status Sync (Login required)'),
                   const SizedBox(height: 8),
-                  _featureRow(Icons.lock_outline_rounded, const Color(0xff94A3B8), 'Shield Scout Community Points & Badges (Login required)'),
+                  _featureRow(Icons.lock_outline_rounded, const Color(0xff94A3B8), 'Community Catalog Submissions & Review (Login required)'),
                 ],
               ),
             ),
@@ -195,7 +234,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 20),
         AppCard(padding: EdgeInsets.zero, child: Column(children: [ListTile(leading: const Icon(Icons.person_outline, color: PriceShieldColors.primary), title: const Text('Edit profile'), trailing: const Icon(Icons.chevron_right), onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())); if (mounted) _refresh(); }), const Divider(height: 1), ListTile(leading: const Icon(Icons.receipt_long_outlined, color: PriceShieldColors.primary), title: const Text('Complaint history'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen())))])),
         const SizedBox(height: 20),
-        OutlinedButton.icon(onPressed: _loading ? null : () async { await authService.logout(); }, icon: const Icon(Icons.logout), label: const Text('Logout'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: Colors.red, side: const BorderSide(color: Colors.red))),
+        OutlinedButton.icon(onPressed: (_loading || _deleting) ? null : () async { await authService.logout(); }, icon: const Icon(Icons.logout), label: const Text('Logout'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: Colors.red, side: const BorderSide(color: Colors.red))),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: (_loading || _deleting) ? null : _confirmDeleteAccount,
+          icon: _deleting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+              : const Icon(Icons.delete_forever_outlined),
+          label: Text(_deleting ? 'Deleting account...' : 'Delete account permanently'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            foregroundColor: const Color(0xffB91C1C),
+          ),
+        ),
       ])),
     );
   }

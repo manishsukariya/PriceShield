@@ -88,7 +88,7 @@ class ShowcardView extends StatelessWidget {
           SizedBox(width: 8),
           Flexible(
             child: Text(
-              'OFFICIAL STATUTORY LAW CARD / विधिक वैधानिक सूचना',
+              'CONSUMER RIGHTS LAW CARD / उपभोक्ता अधिकार सूचना',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xfff59e0b),
@@ -148,7 +148,7 @@ class ShowcardView extends StatelessWidget {
               _priceTag('Printed MRP', '₹${data.formattedMrp}', Colors.white70),
               _priceTag('Shop Demands', '₹${data.formattedChargedPrice}', const Color(0xfffbbf24)),
               if (isOvercharge)
-                _priceTag('Illegal Extra', '+₹${data.formattedOvercharge}', const Color(0xffef4444), isHighlight: true),
+                _priceTag('Extra Demanded', '+₹${data.formattedOvercharge}', const Color(0xffef4444), isHighlight: true),
             ],
           ),
         ],
@@ -237,7 +237,7 @@ class ShowcardView extends StatelessWidget {
 
           if (showEnglish) ...[
             Text(
-              '"No retail dealer shall sell any commodity packed in excess of the Maximum Retail Price (MRP). Printed MRP includes all taxes and refrigeration / chilling expenses. Extra cooling charge is strictly prohibited."',
+              '"No retail dealer shall sell any commodity packed in excess of the Maximum Retail Price (MRP). Printed MRP includes all taxes and refrigeration / chilling expenses. No extra cooling fee should be charged."',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: isFullScreen ? 14 : 13,
@@ -292,7 +292,7 @@ class ShowcardView extends StatelessWidget {
 
           if (showHindi) ...[
             Text(
-              '« एमआरपी से अधिक वसूली करने पर जन विश्वास अधिनियम 2023 के तहत वैधानिक जांच व दुकान का चालान किया जाएगा। बार-बार उल्लंघन करने पर ₹5,00,000 (पाँच लाख रुपये) तक का भारी जुर्माना देय होगा। »',
+              '« एमआरपी से अधिक वसूली की शिकायत जन विश्वास अधिनियम 2023 के तहत संबंधित विभाग को की जा सकती है। बार-बार उल्लंघन साबित होने पर ₹5,00,000 (पाँच लाख रुपये) तक का जुर्माना संभव है। »',
               style: TextStyle(
                 color: const Color(0xfffca5a5),
                 fontSize: isFullScreen ? 15 : 13,
@@ -305,7 +305,7 @@ class ShowcardView extends StatelessWidget {
 
           if (showEnglish) ...[
             Text(
-              '"Selling commodities above MRP leads to immediate statutory inspection. Repeat violations attract compounding civil penalties up to ₹5,00,000 under the Jan Vishwas Act."',
+              '"Selling commodities above MRP may be reported for inspection by Legal Metrology authorities. Repeat verified violations can attract civil penalties up to ₹5,00,000 under the Jan Vishwas Act."',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: isFullScreen ? 14 : 13,
@@ -334,8 +334,8 @@ class ShowcardView extends StatelessWidget {
           Expanded(
             child: Text(
               showHindi
-                  ? 'यह सूचना उपभोक्ता संरक्षण अधिनियम एवं भारत सरकार के नियमों के अधीन मान्य है।'
-                  : 'Issued under Ministry of Consumer Affairs, Food & Public Distribution guidelines.',
+                  ? 'यह जानकारी उपभोक्ता संरक्षण व विधिक मापविज्ञान नियमों के संदर्भ में जागरूकता हेतु है।'
+                  : 'For consumer awareness under Legal Metrology Rules, 2011 & Consumer Affairs guidelines.',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 11,

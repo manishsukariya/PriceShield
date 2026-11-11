@@ -55,9 +55,9 @@ class PackagingComplianceResult {
     violationType: PackagingViolationType.stickerTampering,
     title: 'Sticker Overwrite / Price Tampering Alert',
     description:
-        'This package has an altered price sticker or overwritten tag. The manufacturer\'s printed base price is the only legal MRP.',
+        'This package appears to have an altered price sticker or overwritten tag. Verify the manufacturer\'s original printed MRP.',
     legalAdvice:
-        'Under Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+        'Under Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP may violate retail norms and attract fines up to ₹25,000 upon verification.',
     matchedSnippet: 'Price Sticker Overwrite',
   );
 
@@ -195,9 +195,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.freebie,
           title: 'Free Sample / Promotional Item Resale Alert',
           description:
-              'This unit is marked as a free sample or complimentary pack ("$snippet"). Charging for it is strictly prohibited.',
+              'This unit appears to be marked as a free sample or complimentary pack ("$snippet"). Commercial sale may require verification.',
           legalAdvice:
-              'Under Rule 18 of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 2(47) of the Consumer Protection Act, 2019, commercial resale of items marked "Not for Sale" or "Free Sample" is a punishable offence.',
+              'Under Rule 18 of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 2(47) of the Consumer Protection Act, 2019, commercial resale of items marked "Not for Sale" or "Free Sample" may be reported to the appropriate authority.',
           matchedSnippet: snippet,
         );
       }
@@ -211,9 +211,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.freebie,
           title: 'Free Sample / Promotional Item Resale Alert',
           description:
-              'This unit is marked as a free sample or complimentary pack ("$snippet"). Charging for it is strictly prohibited.',
+              'This unit appears to be marked as a free sample or complimentary pack ("$snippet"). Commercial sale may require verification.',
           legalAdvice:
-              'Under Rule 18 of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 2(47) of the Consumer Protection Act, 2019, commercial resale of items marked "Not for Sale" or "Free Sample" is a punishable offence.',
+              'Under Rule 18 of the Legal Metrology (Packaged Commodities) Rules, 2011 and Section 2(47) of the Consumer Protection Act, 2019, commercial resale of items marked "Not for Sale" or "Free Sample" may be reported to the appropriate authority.',
           matchedSnippet: snippet,
         );
       }
@@ -226,11 +226,11 @@ class PackagingComplianceService {
         return PackagingComplianceResult(
           hasViolation: true,
           violationType: PackagingViolationType.multipack,
-          title: 'Multipack Splitting Violation Detected',
+          title: 'Multipack Splitting Alert',
           description:
-              'This item is marked as part of a multipack ("$snippet") and cannot be unbundled or sold loose as an individual unit.',
+              'This item appears marked as part of a multipack ("$snippet") and may not be meant for loose retail sale.',
           legalAdvice:
-              'Under Rule 24 and Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011, breaking multipacks and retailing individual units without standalone statutory declarations and an independent MRP is illegal.',
+              'Under Rule 24 and Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011, breaking multipacks to sell individual units without standalone declarations and an independent MRP may violate packaging norms.',
           matchedSnippet: snippet,
         );
       }
@@ -242,11 +242,11 @@ class PackagingComplianceService {
         return PackagingComplianceResult(
           hasViolation: true,
           violationType: PackagingViolationType.multipack,
-          title: 'Multipack Splitting Violation Detected',
+          title: 'Multipack Splitting Alert',
           description:
-              'This item is marked as part of a multipack ("$snippet") and cannot be unbundled or sold loose as an individual unit.',
+              'This item appears marked as part of a multipack ("$snippet") and may not be meant for loose retail sale.',
           legalAdvice:
-              'Under Rule 24 and Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011, breaking multipacks and retailing individual units without standalone statutory declarations and an independent MRP is illegal.',
+              'Under Rule 24 and Rule 18(2) of the Legal Metrology (Packaged Commodities) Rules, 2011, breaking multipacks to sell individual units without standalone declarations and an independent MRP may violate packaging norms.',
           matchedSnippet: snippet,
         );
       }
@@ -261,9 +261,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.outerPackMrp,
           title: 'Missing Unit MRP (Outer Pack Required)',
           description:
-              'The inner package states "$snippet". Retailer must verify and declare the official outer carton price before charging.',
+              'The inner package states "$snippet". Verify the official outer carton MRP before paying.',
           legalAdvice:
-              'Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011 mandates clear MRP declaration on consumer packages. Retailers cannot arbitrarily set an unverified price for inner packaging.',
+              'Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011 requires a printed MRP declaration on consumer packages. Check the outer carton before confirming price.',
           matchedSnippet: snippet,
         );
       }
@@ -277,9 +277,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.outerPackMrp,
           title: 'Missing Unit MRP (Outer Pack Required)',
           description:
-              'The inner package states "$snippet". Retailer must verify and declare the official outer carton price before charging.',
+              'The inner package states "$snippet". Verify the official outer carton MRP before paying.',
           legalAdvice:
-              'Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011 mandates clear MRP declaration on consumer packages. Retailers cannot arbitrarily set an unverified price for inner packaging.',
+              'Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011 requires a printed MRP declaration on consumer packages. Check the outer carton before confirming price.',
           matchedSnippet: snippet,
         );
       }
@@ -294,9 +294,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.stickerTampering,
           title: 'Sticker Overwrite / Price Tampering Alert',
           description:
-              'Package shows retailer price label or overwritten tag ("$snippet"). The printed base price is the only legal MRP.',
+              'Package shows a retailer price label or overwritten tag ("$snippet"). Verify the manufacturer\'s original printed MRP.',
           legalAdvice:
-              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP may violate retail norms and attract fines up to ₹25,000 upon verification.',
           matchedSnippet: snippet,
         );
       }
@@ -310,9 +310,9 @@ class PackagingComplianceService {
           violationType: PackagingViolationType.stickerTampering,
           title: 'Sticker Overwrite / Price Tampering Alert',
           description:
-              'Package shows retailer price label or overwritten tag ("$snippet"). The printed base price is the only legal MRP.',
+              'Package shows a retailer price label or overwritten tag ("$snippet"). Verify the manufacturer\'s original printed MRP.',
           legalAdvice:
-              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP is a statutory offence punishable with a fine of up to ₹25,000.',
+              'Under Rule 18(2) of Legal Metrology (Packaged Commodities) Rules, 2011 and Section 36(1) of the Act, affixing stickers over the manufacturer\'s printed MRP may violate retail norms and attract fines up to ₹25,000 upon verification.',
           matchedSnippet: snippet,
         );
       }
@@ -325,11 +325,11 @@ class PackagingComplianceService {
       return PackagingComplianceResult(
         hasViolation: true,
         violationType: PackagingViolationType.promotionalDiscount,
-        title: 'Promotional Pack Discount Discrepancy',
+        title: 'Promotional Pack Discount Notice',
         description:
-            'Package features an on-pack promotional offer ("$snippet") that must be honored at billing.',
+            'Package features an on-pack promotional offer ("$snippet"). Please check if it was applied at billing.',
         legalAdvice:
-            'When an on-pack discount or promotional rebate is printed by the manufacturer, charging the original full price constitutes an unlawful overcharge under Rule 18(2) of Legal Metrology Rules, 2011.',
+            'When an on-pack discount or promotional offer is printed by the manufacturer, verify that billing aligns with the offer under Rule 18(2) of Legal Metrology Rules, 2011.',
         matchedSnippet: snippet,
       );
     }

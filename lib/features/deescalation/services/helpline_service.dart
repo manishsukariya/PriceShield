@@ -30,13 +30,13 @@ class HelplineService {
     final buffer = StringBuffer();
     buffer.writeln('📋 *NATIONAL CONSUMER HELPLINE (NCH) DISPUTE REPORT*');
     buffer.writeln('------------------------------------------');
-    buffer.writeln('🚨 *VIOLATION:* Charging above MRP (Refrigeration / Chilling Surcharge)');
-    buffer.writeln('⚖️ *LEGAL PROVISIONS VIOLATED:*');
+    buffer.writeln('⚠️ *ISSUE REPORTED:* Possible overcharge above MRP (Cooling / Extra Charge)');
+    buffer.writeln('⚖️ *APPLICABLE LEGAL PROVISIONS:*');
     buffer.writeln('1. *Rule 18(2), Legal Metrology (Packaged Commodities) Rules, 2011*');
     buffer.writeln('   - MRP is inclusive of all taxes and refrigeration expenses.');
-    buffer.writeln('   - No retailer can charge over the printed MRP for chilling or any other service.');
+    buffer.writeln('   - Retailers should not charge over printed MRP for chilling or storage.');
     buffer.writeln('2. *Jan Vishwas (Amendment of Provisions) Act, 2023*');
-    buffer.writeln('   - Overcharging attracts statutory inspection and escalating civil compounding penalties up to ₹5,00,000 for repeat offenses.');
+    buffer.writeln('   - Verified overcharging can attract inspection and civil compounding penalties up to ₹5,00,000 for repeat offenses.');
     buffer.writeln('------------------------------------------');
     buffer.writeln('📦 *PRODUCT DETAILS:*');
     buffer.writeln('• Item: ${data.displayName}');
@@ -50,7 +50,7 @@ class HelplineService {
       buffer.writeln('• Demanded Price: ₹${data.formattedChargedPrice}');
     }
     if (hasOvercharge) {
-      buffer.writeln('• Excess Surcharge: ₹${data.formattedOvercharge} (Illegal)');
+      buffer.writeln('• Excess Surcharge: ₹${data.formattedOvercharge} (Reported above MRP)');
     }
     if (data.shopName != null && data.shopName!.trim().isNotEmpty) {
       buffer.writeln('• Shop / Vendor: ${data.shopName!.trim()}');
@@ -60,7 +60,7 @@ class HelplineService {
     }
     buffer.writeln('• Incident Timestamp: $nowStr');
     buffer.writeln('------------------------------------------');
-    buffer.writeln('Please register this complaint for statutory action and regulatory verification under the Department of Consumer Affairs.');
+    buffer.writeln('Please review and register this grievance for verification by the appropriate authority.');
 
     return buffer.toString();
   }

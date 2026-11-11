@@ -1,8 +1,12 @@
 /**
- * Service to fetch product information from Open Food Facts API (fallback).
+ * Service to fetch product information from Open Food Facts & sister Open Facts APIs (fallback).
+ * Queries Open Food Facts, Open Beauty Facts, and Open Products Facts.
  */
 
 const OFF_BASE_URL = 'https://world.openfoodfacts.org/api/v2/product';
+const OBF_BASE_URL = 'https://world.openbeautyfacts.org/api/v2/product';
+const OPF_BASE_URL = 'https://world.openproductsfacts.org/api/v2/product';
+
 const DEFAULT_TIMEOUT_MS = 2500;
 const USER_AGENT = 'PriceShield - Android - Version 1.0 (support@priceshield.app)';
 
@@ -94,9 +98,41 @@ export function extractProductMrp(product) {
   return 0.00;
 }
 
-export async function fetchFromOpenFoodFacts(barcode, { fetchFn = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+function parseProductPayload(product, barcode, source) {
+  const name = formatProductName(product, barcode);
+  const mrp = extractProductMrp(product);
+  const brand = (
+    product.brands ||
+    product.brand_owner ||
+    product.brands_tags?.[0] ||
+    ''
+  ).split(',')[0].replace(/^en:/, '').trim() || null;
+  const imageUrl = product.image_url ||
+    product.image_front_url ||
+    product.image_small_url ||
+    null;
+  const category = (
+    product.categories ||
+    product.categories_tags?.[0] ||
+    ''
+  ).split(',')[0].replace(/^en:/, '').trim() || null;
+  const quantity = (product.quantity || '').trim() || null;
+
+  return {
+    barcode,
+    name,
+    mrp,
+    brand,
+    imageUrl,
+    category,
+    quantity,
+    source,
+  };
+}
+
+async function fetchFromEndpoint(baseUrl, source, barcode, fetchFn, timeoutMs) {
   try {
-    const url = `${OFF_BASE_URL}/${encodeURIComponent(barcode)}.json`;
+    const url = `${baseUrl}/${encodeURIComponent(barcode)}.json`;
     const response = await fetchFn(url, {
       headers: {
         'User-Agent': USER_AGENT,
@@ -114,36 +150,35 @@ export async function fetchFromOpenFoodFacts(barcode, { fetchFn = fetch, timeout
       return null;
     }
 
-    const name = formatProductName(body.product, barcode);
-    const mrp = extractProductMrp(body.product);
-    const brand = (
-      body.product.brands ||
-      body.product.brand_owner ||
-      body.product.brands_tags?.[0] ||
-      ''
-    ).split(',')[0].replace(/^en:/, '').trim() || null;
-    const imageUrl = body.product.image_url ||
-      body.product.image_front_url ||
-      body.product.image_small_url ||
-      null;
-    const category = (
-      body.product.categories ||
-      body.product.categories_tags?.[0] ||
-      ''
-    ).split(',')[0].replace(/^en:/, '').trim() || null;
-    const quantity = (body.product.quantity || '').trim() || null;
-
-    return {
-      barcode,
-      name,
-      mrp,
-      brand,
-      imageUrl,
-      category,
-      quantity,
-    };
-  } catch (error) {
-    // Network error, abort timeout, or parse failure - return null for smooth 404 fallback
+    return parseProductPayload(body.product, barcode, source);
+  } catch {
     return null;
   }
+}
+
+export async function fetchFromOpenFoodFacts(barcode, { fetchFn = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  // 1. Primary lookup: Open Food Facts (fastest & largest food/groceries database)
+  const primaryResult = await fetchFromEndpoint(OFF_BASE_URL, 'open_food_facts', barcode, fetchFn, timeoutMs);
+  if (primaryResult) {
+    return primaryResult;
+  }
+
+  // 2. Multi-source fallback: Check Open Beauty Facts (soaps/shampoos) and Open Products Facts
+  try {
+    const fallbackTimeoutMs = Math.min(1500, timeoutMs);
+    const fallbackResults = await Promise.allSettled([
+      fetchFromEndpoint(OBF_BASE_URL, 'open_beauty_facts', barcode, fetchFn, fallbackTimeoutMs),
+      fetchFromEndpoint(OPF_BASE_URL, 'open_products_facts', barcode, fetchFn, fallbackTimeoutMs),
+    ]);
+
+    for (const res of fallbackResults) {
+      if (res.status === 'fulfilled' && res.value) {
+        return res.value;
+      }
+    }
+  } catch {
+    // Non-blocking fallback
+  }
+
+  return null;
 }

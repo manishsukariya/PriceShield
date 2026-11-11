@@ -6,6 +6,8 @@ import { extractProductMrp, formatProductName } from '../src/modules/products/op
 function createMockPrisma() {
   const users = new Map();
   const products = new Map();
+  const submissions = [];
+  const scans = [];
   let nextId = 1;
 
   const db = {
@@ -37,9 +39,24 @@ function createMockPrisma() {
         return created;
       },
     },
+    productSubmission: {
+      create: async ({ data }) => {
+        const item = { id: `sub-${nextId++}`, status: 'PENDING', ...data, createdAt: new Date() };
+        submissions.push(item);
+        return item;
+      },
+    },
+    scan: {
+      findUnique: async () => null,
+      create: async ({ data }) => {
+        const item = { id: `scan-${nextId++}`, ...data, createdAt: new Date() };
+        scans.push(item);
+        return item;
+      },
+    },
   };
 
-  return { db, users, products };
+  return { db, users, products, submissions, scans };
 }
 
 const env = {
@@ -261,5 +278,103 @@ describe('Product route with Open Food Facts fallback', () => {
     expect(response.body.data.category).toBe('Beverages');
     expect(response.body.data.quantity).toBe('750ml');
     expect(response.body.data.mrp).toBe(40.00);
+  });
+
+  it('falls back to Open Beauty Facts when product is absent from Open Food Facts', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url) => {
+      if (url.includes('openfoodfacts.org')) {
+        return {
+          ok: true,
+          json: async () => ({ status: 0, status_verbose: 'product not found' }),
+        };
+      }
+      if (url.includes('openbeautyfacts.org')) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: 1,
+            product: {
+              product_name: 'Total Protection Bar Soap 125g',
+              brands: 'Dettol',
+              price: 55.00,
+            },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ status: 0 }) };
+    });
+
+    const { app, memory } = setupTestApp({
+      products: [],
+      fetchFn: fetchMock,
+    });
+
+    const response = await request(app)
+      .get('/api/v1/products/8901030383794');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.barcode).toBe('8901030383794');
+    expect(response.body.data.name).toContain('Dettol Total Protection Bar Soap');
+    expect(response.body.data.mrp).toBe(55.00);
+    expect(response.body.data.source).toBe('open_beauty_facts');
+    expect(response.body.data.isReferenceEstimate).toBe(true);
+
+    // Verify it was cached in the database for subsequent fast lookups
+    expect(memory.products.get('8901030383794')).toBeDefined();
+  });
+
+  it('keeps unmoderated product submissions PENDING without overwriting catalog products', async () => {
+    const existingProduct = {
+      id: 'local-1',
+      barcode: '8901262150057',
+      name: 'Amul Taaza Homogenised Toned Milk 500ml',
+      mrp: 27.00,
+    };
+    const { app, memory } = setupTestApp({ products: [existingProduct] });
+
+    const response = await request(app)
+      .post('/api/v1/product-submissions')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        barcode: '8901262150057',
+        productName: 'Tampered Name',
+        printedMrp: 5.00,
+        frontImageUrl: 'https://res.cloudinary.com/mpz1wxhc/image/upload/v1/front.jpg',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.status).toBe('PENDING');
+    // Existing authoritative product must remain untouched
+    expect(memory.products.get('8901262150057').mrp).toBe(27.00);
+    expect(memory.products.get('8901262150057').name).toBe('Amul Taaza Homogenised Toned Milk 500ml');
+  });
+
+  it('rejects untrusted non-Cloudinary image URLs in product submissions', async () => {
+    const { app } = setupTestApp();
+    const response = await request(app)
+      .post('/api/v1/product-submissions')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        barcode: '8901234567899',
+        productName: 'Test Item',
+        frontImageUrl: 'https://evil.example.com/payload.png',
+      });
+    expect(response.status).toBe(400);
+  });
+
+  it('records user scans without auto-creating authoritative catalog products', async () => {
+    const { app, memory } = setupTestApp({ products: [] });
+    const response = await request(app)
+      .post('/api/v1/scans')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        barcode: '8909998887776',
+        productName: 'Unverified Local Snack',
+        mrp: 20,
+        chargedPrice: 25,
+      });
+
+    expect(response.status).toBe(201);
+    expect(memory.products.get('8909998887776')).toBeUndefined();
   });
 });

@@ -1,6 +1,9 @@
+import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
+import { createRateLimiter } from '../src/middleware/rate-limit.js';
+import { isSafeHttpsUrl, isTrustedCloudinaryUrl } from '../src/utils/media-url.js';
 
 function createPrisma() {
   const users = new Map();
@@ -22,6 +25,11 @@ function createPrisma() {
         const updated = { ...user, ...data };
         users.set(updated.email, updated);
         return updated;
+      },
+      delete: async ({ where }) => {
+        const user = [...users.values()].find((item) => item.id === where.id);
+        if (user) users.delete(user.email);
+        return user;
       },
     },
   };
@@ -81,6 +89,49 @@ describe('Firebase authentication integration', () => {
     const unverified = await request(appFor({ uid: 'unverified', email: 'unverified@example.test', email_verified: false })).get('/api/v1/me').set('Authorization', 'Bearer valid-token');
     expect(unverified.status).toBe(403);
     expect(unverified.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+  });
+
+  it('deletes the authenticated user account via DELETE /api/v1/me', async () => {
+    const { app, users } = setup();
+    const initial = await request(app).get('/api/v1/me').set('Authorization', 'Bearer valid-token');
+    expect(initial.status).toBe(200);
+    expect(users.size).toBe(1);
+
+    const deleted = await request(app).delete('/api/v1/me').set('Authorization', 'Bearer valid-token');
+    expect(deleted.status).toBe(204);
+    expect(users.size).toBe(0);
+  });
+
+  it('rejects untrusted photoUrl values on PATCH /api/v1/me', async () => {
+    const { app } = setup();
+    const response = await request(app)
+      .patch('/api/v1/me')
+      .set('Authorization', 'Bearer valid-token')
+      .send({ photoUrl: 'http://127.0.0.1/evil.png' });
+    expect(response.status).toBe(400);
+  });
+});
+
+describe('Security utilities and rate limiting', () => {
+  it('validates HTTPS and Cloudinary media URLs safely', () => {
+    expect(isSafeHttpsUrl('https://res.cloudinary.com/mpz1wxhc/image/upload/v1/sample.jpg')).toBe(true);
+    expect(isSafeHttpsUrl('http://res.cloudinary.com/mpz1wxhc/image/upload/v1/sample.jpg')).toBe(false);
+    expect(isSafeHttpsUrl('https://localhost/admin')).toBe(false);
+    expect(isSafeHttpsUrl('https://192.168.1.1/file.jpg')).toBe(false);
+    expect(isTrustedCloudinaryUrl('https://res.cloudinary.com/mpz1wxhc/image/upload/v1/sample.jpg')).toBe(true);
+    expect(isTrustedCloudinaryUrl('https://evil.example.com/phish.jpg')).toBe(false);
+  });
+
+  it('enforces sliding-window rate limits with 429 response', async () => {
+    const testApp = express();
+    testApp.use(createRateLimiter({ windowMs: 60000, max: 2, keyGenerator: () => 'client-1' }));
+    testApp.get('/ping', (_req, res) => res.json({ ok: true }));
+
+    expect((await request(testApp).get('/ping')).status).toBe(200);
+    expect((await request(testApp).get('/ping')).status).toBe(200);
+    const blocked = await request(testApp).get('/ping');
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
   });
 });
 

@@ -16,7 +16,14 @@ export function productRoutes({ authenticate, authenticateOptional, prisma, fetc
       // 1. Fast local database lookup (indexed by unique barcode)
       const localProduct = await prisma.product.findUnique({ where: { barcode } });
       if (localProduct) {
-        return response.json({ data: localProduct });
+        return response.json({
+          data: {
+            ...localProduct,
+            source: 'catalog_db',
+            isReferenceEstimate: true,
+            mrpDisclaimer: 'Reference MRP only. Always verify the printed MRP on the package.',
+          },
+        });
       }
 
       // 2. Real-time Open Food Facts fallback ingestion (strict 2.5s timeout)
@@ -52,6 +59,9 @@ export function productRoutes({ authenticate, authenticateOptional, prisma, fetc
             imageUrl: offProduct.imageUrl || undefined,
             category: offProduct.category || undefined,
             quantity: offProduct.quantity || undefined,
+            source: offProduct.source || 'open_food_facts',
+            isReferenceEstimate: true,
+            mrpDisclaimer: 'External catalog estimate. Always verify the printed MRP on the package.',
           },
         });
       }

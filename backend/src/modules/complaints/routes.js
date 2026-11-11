@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { AppError } from '../../middleware/errors.js';
 import { validate } from '../../middleware/validate.js';
+import { trustedMediaUrl } from '../../utils/media-url.js';
 import { pageResult, parseCursor, parseLimit } from '../../utils/query.js';
 
 const money = z.coerce.number().positive().max(99999999.99);
 const evidence = z.object({
-  url: z.string().url(),
+  url: trustedMediaUrl,
   publicId: z.string().trim().min(1).max(255).optional(),
   resourceType: z.string().trim().min(1).max(30).optional(),
   mediaType: z.preprocess(

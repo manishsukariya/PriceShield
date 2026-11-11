@@ -1,7 +1,11 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
-import { extractProductMrp, formatProductName } from '../src/modules/products/open-food-facts.js';
+import {
+  extractMrpFromText,
+  extractProductMrp,
+  formatProductName,
+} from '../src/modules/products/open-food-facts.js';
 
 function createMockPrisma() {
   const users = new Map();
@@ -115,8 +119,26 @@ describe('Open Food Facts formatting and extraction', () => {
   it('infers MRP from textual name or packaging when direct price field is absent', () => {
     expect(extractProductMrp({ product_name: 'Kurkure Masala Munch Rs. 20' })).toBe(20.0);
     expect(extractProductMrp({ product_name: 'Lay\'s India\'s Magic Masala 10/-' })).toBe(10.0);
+    expect(extractProductMrp({ product_name: 'Lays Classics Salted 20rs' })).toBe(20.0);
     expect(extractProductMrp({ packaging_text: 'MRP: ₹ 15.00 (INCL OF TAXES)' })).toBe(15.0);
     expect(extractProductMrp({ product_name: 'Sting Energy Drink 250ml ₹20' })).toBe(20.0);
+  });
+
+  it('extracts MRP from packet Cloud Vision OCR while rejecting unit rates, dates, and promo offers', () => {
+    // Real-world OCR pattern from Britannia Jimjam 138g (8901063029279)
+    const jimjamOcr = 'LOT NO.\n35.00\nRs.0.25 per g\n17/08/23\n16/02/24\nK50823E';
+    expect(extractMrpFromText(jimjamOcr, { quantityText: '138 g' })).toBe(35);
+
+    // Real-world OCR pattern from Kurkure Green Chutney 33g (8901491103046)
+    const kurkureOcr = 'MRP Rs. 10/- (INCL. OF ALL TAXES)\nRs. 0.28/- PER g';
+    expect(extractMrpFromText(kurkureOcr, { quantityText: '33 g' })).toBe(10);
+
+    // Promo scratch card voucher must not override or fake MRP when standalone MRP is absent
+    const promoOnly = 'WIN! GET A FLAT ₹50 CASHBACK SCRATCH CARD ON GPAY\nUnit Price Rs.0.25 per g';
+    expect(extractMrpFromText(promoOnly, { quantityText: '100 g' })).toBe(0);
+
+    // Unit sale price alone must never be mistaken for MRP
+    expect(extractMrpFromText('Rs. 2 per g\nNET WT 50g')).toBe(0);
   });
 });
 
@@ -376,5 +398,107 @@ describe('Product route with Open Food Facts fallback', () => {
 
     expect(response.status).toBe(201);
     expect(memory.products.get('8909998887776')).toBeUndefined();
+  });
+
+  it('extracts MRP from Open Food Facts packaging OCR image JSON and self-heals cached mrp=0 DB rows', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url) => {
+      if (url.includes('/api/v2/product/8901063029279.json')) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: 1,
+            product: {
+              product_name: 'Jimjam',
+              brands: 'Britannia',
+              quantity: '138 g',
+              image_url: 'https://images.openfoodfacts.org/images/products/890/106/302/9279/front_en.3.400.jpg',
+              images: {
+                packaging_en: { imgid: '4' },
+              },
+            },
+          }),
+        };
+      }
+      if (url === 'https://images.openfoodfacts.org/images/products/890/106/302/9279/4.json') {
+        return {
+          ok: true,
+          json: async () => ({
+            responses: [
+              {
+                fullTextAnnotation: {
+                  text: '35.00\nRs.0.25 per g\n17/08/23\n16/02/24',
+                },
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes('prices.openfoodfacts.org/api/v1/prices')) {
+        return { ok: true, json: async () => ({ items: [] }) };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+
+    // Simulate previously cached broken entry with mrp: 0
+    const { app, memory } = setupTestApp({
+      products: [
+        {
+          id: 'stale-row-1',
+          barcode: '8901063029279',
+          name: 'Britannia Jimjam (138 g)',
+          mrp: 0,
+        },
+      ],
+      fetchFn: fetchMock,
+    });
+
+    const firstRes = await request(app).get('/api/v1/products/8901063029279');
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body.data.mrp).toBe(35);
+    expect(firstRes.body.data.mrpSource).toBe('open_food_facts_ocr');
+    expect(memory.products.get('8901063029279').mrp).toBe(35);
+
+    // Subsequent lookup must hit local DB at 0ms without calling external APIs
+    fetchMock.mockClear();
+    const secondRes = await request(app).get('/api/v1/products/8901063029279');
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body.data.mrp).toBe(35);
+    expect(secondRes.body.data.source).toBe('catalog_db');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('uses Open Prices INR price_without_discount when OFF lacks direct price', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url) => {
+      if (url.includes('/api/v2/product/8901234000011.json')) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: 1,
+            product: {
+              product_name: 'Chana Jor Garam',
+              brands: 'Haldirams',
+              quantity: '150 g',
+            },
+          }),
+        };
+      }
+      if (url.includes('prices.openfoodfacts.org/api/v1/prices')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              { currency: 'INR', price: 38, price_without_discount: 45 },
+            ],
+          }),
+        };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+
+    const { app } = setupTestApp({ products: [], fetchFn: fetchMock });
+    const res = await request(app).get('/api/v1/products/8901234000011');
+    expect(res.status).toBe(200);
+    expect(res.body.data.mrp).toBe(45);
+    expect(res.body.data.mrpSource).toBe('open_prices');
   });
 });

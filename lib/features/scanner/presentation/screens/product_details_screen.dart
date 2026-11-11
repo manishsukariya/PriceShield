@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
+import 'package:priceshield/core/services/mrp_enrichment_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
@@ -13,9 +14,16 @@ import 'package:priceshield/features/scanner/presentation/screens/scan_result_sc
 import 'package:priceshield/features/scanner/services/packaging_compliance_service.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
-  const ProductDetailsScreen({super.key, required this.barcode});
+  const ProductDetailsScreen({
+    super.key,
+    required this.barcode,
+    this.apiClient,
+    this.enrichmentService,
+  });
 
   final String barcode;
+  final PriceShieldApiClient? apiClient;
+  final MrpEnrichmentService? enrichmentService;
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -32,6 +40,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _isReferenceEstimate = false;
   String? _productSource;
   String? _mrpDisclaimer;
+  String? _quantityText;
   String? _loadError;
   Gs1BrandInfo? _detectedBrandInfo;
   File? _frontImage;
@@ -44,24 +53,66 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   String _venueType = 'RETAIL';
   num? _catalogBaseMrp;
 
+  PriceShieldApiClient get _api => widget.apiClient ?? priceShieldApi;
+  MrpEnrichmentService get _enrichment =>
+      widget.enrichmentService ?? mrpEnrichmentService;
+
   @override
   void initState() {
     super.initState();
-    final cached = priceShieldApi.getCachedProduct(widget.barcode);
+    _detectedBrandInfo = Gs1IndiaBrandResolver.resolve(widget.barcode);
+    final cached = _api.getCachedProduct(widget.barcode);
     if (cached != null) {
       _nameController.text = cached['name']?.toString() ?? '';
+      _quantityText = cached['quantity']?.toString();
       final mrp = num.tryParse(cached['mrp']?.toString() ?? '');
-      _catalogBaseMrp = mrp;
-      _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
+      _catalogBaseMrp = (mrp != null && mrp > 0) ? mrp : null;
+      _mrpController.text =
+          (mrp != null && mrp > 0) ? MrpEnrichmentService.formatMrp(mrp) : '';
       _isKnownProduct =
           _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
-      _productSource = cached['source']?.toString();
+      final mrpSource = cached['mrpSource']?.toString();
+      _productSource = (mrpSource != null && mrpSource.isNotEmpty)
+          ? mrpSource
+          : cached['source']?.toString();
       _mrpDisclaimer = cached['mrpDisclaimer']?.toString();
       _isReferenceEstimate = cached['isReferenceEstimate'] == true || _isKnownProduct;
       _loading = false;
+      if (mrp == null || mrp <= 0) {
+        _enrichCachedMissingMrp(cached);
+      }
     } else {
       _fetchProduct();
     }
+  }
+
+  Future<void> _enrichCachedMissingMrp(Map<String, dynamic> cached) async {
+    final resolved = await _enrichment.resolveMissingMrp(
+      barcode: widget.barcode,
+      productName: _nameController.text,
+      source: _productSource,
+    );
+    if (!mounted || resolved == null || resolved.mrp <= 0) return;
+    setState(() {
+      if (_mrpController.text.trim().isEmpty) {
+        _mrpController.text = MrpEnrichmentService.formatMrp(resolved.mrp);
+      }
+      _catalogBaseMrp = resolved.mrp;
+      _quantityText ??= resolved.quantityText;
+      _productSource = resolved.source;
+      _isReferenceEstimate = true;
+      _isKnownProduct =
+          _nameController.text.trim().isNotEmpty && _mrpController.text.trim().isNotEmpty;
+      _mrpDisclaimer =
+          'External catalog & packaging OCR reference. Always verify the printed MRP on the package.';
+    });
+    _api.cacheProduct(widget.barcode, {
+      ...cached,
+      'name': _nameController.text.trim(),
+      'mrp': resolved.mrp,
+      'source': resolved.source,
+      'isReferenceEstimate': true,
+    });
   }
 
   @override
@@ -74,31 +125,60 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _fetchProduct() async {
     try {
-      final product = await priceShieldApi.getProduct(widget.barcode);
+      final product = await _api.getProduct(widget.barcode);
       _nameController.text = product['name']?.toString() ?? '';
+      _quantityText = product['quantity']?.toString();
       final mrp = num.tryParse(product['mrp']?.toString() ?? '');
-      _catalogBaseMrp = mrp;
-      _mrpController.text = (mrp != null && mrp > 0) ? mrp.toString() : '';
-      _isKnownProduct =
-          _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
-      _productSource = product['source']?.toString();
+      _catalogBaseMrp = (mrp != null && mrp > 0) ? mrp : null;
+      _mrpController.text =
+          (mrp != null && mrp > 0) ? MrpEnrichmentService.formatMrp(mrp) : '';
+      final mrpSource = product['mrpSource']?.toString();
+      _productSource = (mrpSource != null && mrpSource.isNotEmpty)
+          ? mrpSource
+          : product['source']?.toString();
       _mrpDisclaimer = product['mrpDisclaimer']?.toString();
-      _isReferenceEstimate = product['isReferenceEstimate'] == true || _isKnownProduct;
       _loadError = null;
+      _detectedBrandInfo ??= Gs1IndiaBrandResolver.resolve(widget.barcode);
 
-      if (_nameController.text.trim().isEmpty) {
-        final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
-        if (brand != null) {
-          _detectedBrandInfo = brand;
-          _nameController.text = '${brand.brandName} (${brand.category})';
+      if (_nameController.text.trim().isEmpty && _detectedBrandInfo != null) {
+        _nameController.text =
+            '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
+      }
+
+      if (mrp == null || mrp <= 0) {
+        final resolved = await _enrichment.resolveMissingMrp(
+          barcode: widget.barcode,
+          productName: _nameController.text,
+          source: _productSource,
+        );
+        if (resolved != null && resolved.mrp > 0) {
+          if (_mrpController.text.trim().isEmpty) {
+            _mrpController.text = MrpEnrichmentService.formatMrp(resolved.mrp);
+          }
+          _catalogBaseMrp = resolved.mrp;
+          _quantityText ??= resolved.quantityText;
+          _productSource = resolved.source;
+          _mrpDisclaimer =
+              'External catalog & packaging OCR reference. Always verify the printed MRP on the package.';
+          _api.cacheProduct(widget.barcode, {
+            ...product,
+            'name': _nameController.text.trim(),
+            'mrp': resolved.mrp,
+            'source': resolved.source,
+            'isReferenceEstimate': true,
+          });
         }
       }
+
+      _isKnownProduct =
+          _nameController.text.trim().isNotEmpty && _mrpController.text.trim().isNotEmpty;
+      _isReferenceEstimate = product['isReferenceEstimate'] == true || _isKnownProduct;
     } on PriceShieldApiException catch (e) {
       _isKnownProduct = false;
-      final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
-      if (brand != null) {
-        _detectedBrandInfo = brand;
-        _nameController.text = '${brand.brandName} (${brand.category})';
+      _detectedBrandInfo ??= Gs1IndiaBrandResolver.resolve(widget.barcode);
+      if (_detectedBrandInfo != null && _nameController.text.trim().isEmpty) {
+        _nameController.text =
+            '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
       }
       if (e.statusCode == 404) {
         // Product not found in local catalog or OFF fallback.
@@ -109,10 +189,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       }
     } catch (_) {
       _isKnownProduct = false;
-      final brand = Gs1IndiaBrandResolver.resolve(widget.barcode);
-      if (brand != null) {
-        _detectedBrandInfo = brand;
-        _nameController.text = '${brand.brandName} (${brand.category})';
+      _detectedBrandInfo ??= Gs1IndiaBrandResolver.resolve(widget.barcode);
+      if (_detectedBrandInfo != null && _nameController.text.trim().isEmpty) {
+        _nameController.text =
+            '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
       }
       _loadError = 'Could not reach server. You can enter details manually.';
     } finally {
@@ -127,17 +207,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (mrp == null || charged == null || mrp <= 0 || charged <= 0) return;
 
     // Cache locally for fast retrieval on repeated scans in this session
-    priceShieldApi.cacheProduct(widget.barcode, {
+    _api.cacheProduct(widget.barcode, {
       'barcode': widget.barcode,
       'name': _nameController.text.trim(),
       'mrp': mrp,
+      if (_quantityText != null) 'quantity': _quantityText,
       'source': _productSource ?? 'user_verified_session',
       'isReferenceEstimate': true,
     });
 
     if (!_isKnownProduct && AuthSession.isSignedIn) {
       // Queue for backend moderation review asynchronously
-      priceShieldApi.createProductSubmission(
+      _api.createProductSubmission(
         barcode: widget.barcode,
         productName: _nameController.text.trim(),
         printedMrp: mrp,
@@ -182,31 +263,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   num? _extractMrpFromOcr(String text) {
-    // 1. Standard OCR match:
-    final match = RegExp(
-      r'(?:(?:M\.?\s*R\.?\s*P\.?|MAX(?:IMUM)?\.?\s*RETAIL\s*PRICE)(?:\s*\([^)]*\))?|INCL\.?\s*OF\s*ALL\s*TAXES|Rs\.?|INR|₹)\s*[:\.\-]?\s*(?:Rs\.?|INR|₹)?\s*(\d+(?:\.\d{1,2})?)',
-      caseSensitive: false,
-    ).firstMatch(text);
-    if (match != null) {
-      return num.tryParse(match.group(1)!);
-    }
-
-    // 2. Chilled bottle / condensation de-noised match:
-    // Handles OCR digit/character substitutions like 'O'/'o' -> '0', 'S'/'s' -> '5', 'l'/'I' -> '1', '2O' -> '20'
-    final fuzzyMatch = RegExp(
-      r'(?:M\.?\s*R\.?\s*P\.?|MAX\.?\s*PRICE|Rs\.?|₹)\s*[:\.\-]?\s*(?:Rs\.?|₹)?\s*([0-9OoSlIB]{1,4}(?:[\.,][0-9Oo]{1,2})?)',
-      caseSensitive: false,
-    ).firstMatch(text);
-    if (fuzzyMatch != null) {
-      final cleaned = fuzzyMatch
-          .group(1)!
-          .replaceAll(RegExp(r'[Oo]'), '0')
-          .replaceAll(RegExp(r'[Ss]'), '5')
-          .replaceAll(RegExp(r'[lIB]'), '1')
-          .replaceAll(',', '.');
-      return num.tryParse(cleaned);
-    }
-    return null;
+    return MrpEnrichmentService.extractMrpFromOcr(
+      text,
+      quantityText: _quantityText,
+    );
   }
 
   Future<void> _readPackageText(File image) async {
@@ -224,10 +284,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           _complianceResult = compliance;
         }
 
-        // Robust & fuzzy OCR printed MRP extraction:
-        final extractedMrp = _extractMrpFromOcr(_ocrText);
+        // Prioritize the freshly scanned close-up image before combined OCR text
+        final extractedMrp =
+            _extractMrpFromOcr(text) ?? _extractMrpFromOcr(_ocrText);
         if (_mrpController.text.trim().isEmpty && extractedMrp != null && extractedMrp > 0) {
-          _mrpController.text = extractedMrp.toString();
+          _mrpController.text = MrpEnrichmentService.formatMrp(extractedMrp);
         }
 
         // Suggest name from first clear title-like line if currently empty
@@ -308,10 +369,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           ? null
           : await CloudinaryUploadService.uploadFile(file: _backImage!, isVideo: false);
       final parsedMrp = num.tryParse(_mrpController.text.trim());
-      if (!priceShieldApi.isConfigured) {
+      if (!_api.isConfigured) {
         throw const PriceShieldApiException('Service is temporarily unavailable. Please try again.');
       }
-      await priceShieldApi.createProductSubmission(
+      await _api.createProductSubmission(
         barcode: widget.barcode,
         productName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
         printedMrp: parsedMrp,
@@ -355,20 +416,36 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         return 'Offline Reference Catalog';
       case 'catalog_db':
         return 'PriceShield Reference Catalog';
+      case 'community_reviewed':
+        return 'Community Verified Catalog';
+      case 'open_prices':
+        return 'Open Prices INR';
       case 'open_food_facts':
         return 'Open Food Facts';
+      case 'open_food_facts_ocr':
+        return 'Open Food Facts Packaging OCR';
       case 'open_beauty_facts':
         return 'Open Beauty Facts';
+      case 'open_beauty_facts_ocr':
+        return 'Open Beauty Facts Packaging OCR';
       case 'open_products_facts':
         return 'Open Products Facts';
+      case 'open_products_facts_ocr':
+        return 'Open Products Facts Packaging OCR';
       default:
         return 'Reference Catalog';
     }
   }
 
-  InputDecoration _decoration(String label, {String? prefix}) => InputDecoration(
+  InputDecoration _decoration(
+    String label, {
+    String? prefix,
+    Widget? suffixIcon,
+  }) =>
+      InputDecoration(
         labelText: label,
         prefixText: prefix,
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: PriceShieldColors.surface,
         border: OutlineInputBorder(
@@ -390,7 +467,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ? (_mrpDisclaimer ??
             'Catalog reference (${_sourceLabel(_productSource)}). Always verify the MRP printed on the physical package before checking.')
         : hasName
-            ? 'Product reference found! Enter or verify the printed MRP from the package.'
+            ? 'Product identified, but MRP isn\'t listed in online catalogs yet. Tap the scan icon in Printed MRP or enter it from your packet.'
             : 'Product not found in catalog. Enter the name and printed MRP from the package.';
     final bannerColor = isFullyVerified
         ? PriceShieldColors.mint
@@ -515,7 +592,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               TextFormField(
                 controller: _mrpController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: _decoration('Printed MRP', prefix: '₹ '),
+                decoration: _decoration(
+                  'Printed MRP',
+                  prefix: '₹ ',
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan MRP from packet',
+                    icon: _readingPackage
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.document_scanner_outlined),
+                    onPressed: _readingPackage
+                        ? null
+                        : () => _pickPackageImage(isFront: false),
+                  ),
+                ),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final amount = num.tryParse(value?.trim() ?? '');

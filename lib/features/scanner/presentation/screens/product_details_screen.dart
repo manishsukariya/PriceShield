@@ -48,6 +48,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   String _ocrText = '';
   PackagingComplianceResult? _complianceResult;
   bool _readingPackage = false;
+  bool _resolvingMrp = false;
   bool _submittingProduct = false;
   bool _isStickerFlagged = false;
   String _venueType = 'RETAIL';
@@ -87,32 +88,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _enrichCachedMissingMrp(Map<String, dynamic> cached) async {
-    final resolved = await _enrichment.resolveMissingMrp(
-      barcode: widget.barcode,
-      productName: _nameController.text,
-      source: _productSource,
-    );
-    if (!mounted || resolved == null || resolved.mrp <= 0) return;
-    setState(() {
-      if (_mrpController.text.trim().isEmpty) {
-        _mrpController.text = MrpEnrichmentService.formatMrp(resolved.mrp);
-      }
-      _catalogBaseMrp = resolved.mrp;
-      _quantityText ??= resolved.quantityText;
-      _productSource = resolved.source;
-      _isReferenceEstimate = true;
-      _isKnownProduct =
-          _nameController.text.trim().isNotEmpty && _mrpController.text.trim().isNotEmpty;
-      _mrpDisclaimer =
-          'External catalog & packaging OCR reference. Always verify the printed MRP on the package.';
-    });
-    _api.cacheProduct(widget.barcode, {
-      ...cached,
-      'name': _nameController.text.trim(),
-      'mrp': resolved.mrp,
-      'source': resolved.source,
-      'isReferenceEstimate': true,
-    });
+    if (mounted) setState(() => _resolvingMrp = true);
+    try {
+      final resolved = await _enrichment.resolveMissingMrp(
+        barcode: widget.barcode,
+        productName: _nameController.text,
+        source: _productSource,
+      );
+      if (!mounted || resolved == null || resolved.mrp <= 0) return;
+      setState(() {
+        if (_mrpController.text.trim().isEmpty) {
+          _mrpController.text = MrpEnrichmentService.formatMrp(resolved.mrp);
+        }
+        _catalogBaseMrp = resolved.mrp;
+        _quantityText ??= resolved.quantityText;
+        _productSource = resolved.source;
+        _isReferenceEstimate = true;
+        _isKnownProduct = _nameController.text.trim().isNotEmpty &&
+            _mrpController.text.trim().isNotEmpty;
+        _mrpDisclaimer =
+            'External catalog & packaging OCR reference. Always verify the printed MRP on the package.';
+      });
+      _api.cacheProduct(widget.barcode, {
+        ...cached,
+        'name': _nameController.text.trim(),
+        'mrp': resolved.mrp,
+        'source': resolved.source,
+        'isReferenceEstimate': true,
+      });
+    } finally {
+      if (mounted) setState(() => _resolvingMrp = false);
+    }
   }
 
   @override
@@ -124,6 +130,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _fetchProduct() async {
+    Map<String, dynamic>? fetchedMissingMrpProduct;
     try {
       final product = await _api.getProduct(widget.barcode);
       _nameController.text = product['name']?.toString() ?? '';
@@ -146,27 +153,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       }
 
       if (mrp == null || mrp <= 0) {
-        final resolved = await _enrichment.resolveMissingMrp(
-          barcode: widget.barcode,
-          productName: _nameController.text,
-          source: _productSource,
+        // Resolve local title patterns instantaneously (0ms) before rendering,
+        // then run network OCR / Open Prices enrichment without blocking the form.
+        final fromName = MrpEnrichmentService.extractMrpFromText(
+          _nameController.text,
+          quantityText: _quantityText,
         );
-        if (resolved != null && resolved.mrp > 0) {
-          if (_mrpController.text.trim().isEmpty) {
-            _mrpController.text = MrpEnrichmentService.formatMrp(resolved.mrp);
-          }
-          _catalogBaseMrp = resolved.mrp;
-          _quantityText ??= resolved.quantityText;
-          _productSource = resolved.source;
-          _mrpDisclaimer =
-              'External catalog & packaging OCR reference. Always verify the printed MRP on the package.';
+        if (fromName != null && fromName > 0) {
+          _mrpController.text = MrpEnrichmentService.formatMrp(fromName);
+          _catalogBaseMrp = fromName;
           _api.cacheProduct(widget.barcode, {
             ...product,
             'name': _nameController.text.trim(),
-            'mrp': resolved.mrp,
-            'source': resolved.source,
+            'mrp': fromName,
+            'source': _productSource ?? 'catalog_name',
             'isReferenceEstimate': true,
           });
+        } else {
+          fetchedMissingMrpProduct = product;
         }
       }
 
@@ -197,6 +201,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _loadError = 'Could not reach server. You can enter details manually.';
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+
+    if (fetchedMissingMrpProduct != null && mounted) {
+      await _enrichCachedMissingMrp(fetchedMissingMrpProduct);
     }
   }
 
@@ -615,6 +623,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   return amount == null || amount <= 0 ? 'Enter a valid printed MRP' : null;
                 },
               ),
+              if (_resolvingMrp && _mrpController.text.trim().isEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: const [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Checking packaging OCR & Open Prices for printed MRP...',
+                        style: TextStyle(fontSize: 11, color: Color(0xff0369A1)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (_isReferenceEstimate && _isKnownProduct) ...[
                 const SizedBox(height: 6),
                 Row(

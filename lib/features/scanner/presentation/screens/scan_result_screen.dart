@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaint_screen.dart';
-import 'package:priceshield/features/complaints/services/escalation_pack_service.dart';
 import 'package:priceshield/features/deescalation/models/deescalation_data.dart';
 import 'package:priceshield/features/deescalation/presentation/screens/deescalation_screen.dart';
 import 'package:priceshield/features/scanner/services/packaging_compliance_service.dart';
@@ -56,49 +54,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     }
   }
 
-  Future<void> _copyWhatsAppNotice() async {
-    final notice = EscalationPackService.generateWhatsAppNotice(
-      productName: widget.name,
-      barcode: widget.barcode,
-      mrp: widget.mrp,
-      chargedPrice: widget.charged,
-      complianceResult: widget.complianceResult,
-    );
-    await Clipboard.setData(ClipboardData(text: notice));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Advisory notice copied to clipboard! Ready to review or share.'),
-          backgroundColor: PriceShieldColors.navy,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<void> _exportOfficialDocket() async {
-    final docket = EscalationPackService.generateOfficialDocket(
-      productName: widget.name,
-      barcode: widget.barcode,
-      mrp: widget.mrp,
-      chargedPrice: widget.charged,
-      complianceResult: widget.complianceResult,
-    );
-    await Clipboard.setData(ClipboardData(text: docket));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Grievance summary docket copied! Review details before filing on NCH 1915.'),
-          backgroundColor: PriceShieldColors.navy,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final overcharged = widget.charged > widget.mrp;
+    final isRestaurantVenue = widget.venueType.trim().toUpperCase() == 'RESTAURANT';
     final hasComplianceIssue = widget.complianceResult?.hasViolation == true;
     final difference = widget.charged - widget.mrp;
     final color = overcharged ? PriceShieldColors.danger : PriceShieldColors.success;
@@ -359,69 +318,57 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
           const SizedBox(height: 20),
 
-          // Responsible Escalation Pack Service Actions
+          // Gated Legal Notice & Grievance Docket Info Card (prevents premature public accusation)
           AppCard(
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: PriceShieldColors.mint,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.description_outlined,
-                        color: PriceShieldColors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Responsible Escalation Pack',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          Text(
-                            'Draft templates to review before contacting merchant or NCH',
-                            style: TextStyle(color: PriceShieldColors.muted, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _copyWhatsAppNotice,
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xff25D366)),
-                    label: const Text('Copy Legal Notice (WhatsApp/Email)'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: PriceShieldColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isRestaurantVenue
+                        ? const Color(0xffFEF3C7)
+                        : PriceShieldColors.mint,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    color: isRestaurantVenue
+                        ? const Color(0xffB45309)
+                        : PriceShieldColors.primary,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _exportOfficialDocket,
-                    icon: const Icon(Icons.assignment_outlined, color: PriceShieldColors.primary),
-                    label: const Text('Export Official Grievance Docket'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: PriceShieldColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isRestaurantVenue
+                            ? 'Formal MRP Docket Not Applicable (Dine-In)'
+                            : (!overcharged
+                                ? 'Legal Docket Locked (Within MRP)'
+                                : 'Legal Notice & Docket Locked Until Logged'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isRestaurantVenue
+                            ? 'Under SC FHRAI (2017), seated dine-in restaurants are exempt from MRP limits. If this was a retail shop or counter takeaway, go back and select Retail Shop.'
+                            : (!overcharged
+                                ? 'No overcharge above printed MRP was detected. Official grievance dockets are only available after logging a retail overcharge complaint.'
+                                : 'To prevent unverified accusations, Legal Notice and Official Grievance Docket export unlock after you log a formal complaint with Packet MRP and transaction proof.'),
+                        style: const TextStyle(
+                          color: PriceShieldColors.muted,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -430,8 +377,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
           const SizedBox(height: 16),
 
-          // Actions when overcharge is detected
-          if (overcharged) ...[
+          // Actions when retail overcharge is detected
+          if (overcharged && !isRestaurantVenue) ...[
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
@@ -468,6 +415,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                       barcode: widget.barcode,
                       mrp: widget.mrp,
                       charged: widget.charged,
+                      venueType: widget.venueType,
                     ),
                   ),
                 ),
@@ -624,6 +572,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           barcode: widget.barcode,
                           mrp: widget.mrp,
                           charged: widget.charged,
+                          venueType: widget.venueType,
                           initialNotes:
                               'Silent evidence report prepared via PriceShield Stealth Safe-Exit Mode. Charged ₹${widget.charged} against printed MRP ₹${widget.mrp} (Reported difference: ₹${(widget.charged - widget.mrp).toStringAsFixed(2)}). Attach UPI receipt / photo evidence below.',
                         ),

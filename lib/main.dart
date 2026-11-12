@@ -8,8 +8,8 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  await authService.restoreSession();
-  // Asynchronously ping backend so Render instance wakes up during app startup
+  // Asynchronously ping backend so Render instance wakes up during app startup.
   priceShieldApi.warmUpBackend();
+  await authService.restoreSession();
   runApp(const PriceShieldApp());
 }

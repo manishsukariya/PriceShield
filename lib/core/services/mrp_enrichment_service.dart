@@ -30,7 +30,7 @@ class _ParsedQuantity {
 class MrpEnrichmentService {
   MrpEnrichmentService({
     http.Client? client,
-    Duration timeout = const Duration(milliseconds: 3000),
+    Duration timeout = const Duration(seconds: 12),
   }) : _client = client ?? http.Client(),
        _timeout = timeout;
 
@@ -351,22 +351,28 @@ class MrpEnrichmentService {
       }
     }
 
-    final results = await Future.wait<MrpResolution?>([
-      _fetchFromOpenPricesInr(cleanBarcode),
-      _fetchFromOpenFactsWithOcr(cleanBarcode, preferredSource: source),
-    ]);
-
-    return results[0] ?? results[1];
+    final openFactsFuture = _fetchFromOpenFactsWithOcr(
+      cleanBarcode,
+      preferredSource: source,
+    );
+    final openPricesResult = await _fetchFromOpenPricesInr(cleanBarcode);
+    if (openPricesResult != null) {
+      return openPricesResult;
+    }
+    return await openFactsFuture;
   }
 
   Future<MrpResolution?> _fetchFromOpenPricesInr(String barcode) async {
     try {
+      final priceTimeout = _timeout > const Duration(seconds: 5)
+          ? const Duration(seconds: 5)
+          : _timeout;
       final uri = Uri.parse(
         '$_openPricesBaseUrl?product_code=${Uri.encodeQueryComponent(barcode)}&currency=INR&size=5',
       );
       final response = await _client
           .get(uri, headers: const {'User-Agent': _userAgent, 'Accept': 'application/json'})
-          .timeout(_timeout);
+          .timeout(priceTimeout);
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
 
       final decoded = jsonDecode(response.body);
@@ -456,44 +462,71 @@ class MrpEnrichmentService {
       final dirUrl = _resolveImageDirectoryUrl(product, barcode, source);
       if (dirUrl.isEmpty) return null;
 
-      final perImageResults = await Future.wait<num?>(
-        imageIds.map((id) async {
-          try {
-            final ocrRes = await _client
-                .get(
-                  Uri.parse('$dirUrl/$id.json'),
-                  headers: const {'User-Agent': _userAgent, 'Accept': 'application/json'},
-                )
-                .timeout(_timeout);
-            if (ocrRes.statusCode < 200 || ocrRes.statusCode >= 300) return null;
-            final ocrJson = jsonDecode(ocrRes.body);
-            if (ocrJson is! Map) return null;
-            final responses = ocrJson['responses'];
-            if (responses is! List || responses.isEmpty) return null;
-            final first = responses.first;
-            if (first is! Map) return null;
-            final fullText = first['fullTextAnnotation']?['text']?.toString();
-            if (fullText == null || fullText.isEmpty) return null;
-            return extractMrpFromText(fullText, quantityText: quantityText);
-          } catch (_) {
-            return null;
-          }
-        }),
+      final mrp = await _raceFirstPositive(
+        imageIds
+            .map((id) async {
+              try {
+                final ocrRes = await _client
+                    .get(
+                      Uri.parse('$dirUrl/$id.json'),
+                      headers: const {
+                        'User-Agent': _userAgent,
+                        'Accept': 'application/json',
+                      },
+                    )
+                    .timeout(_timeout);
+                if (ocrRes.statusCode < 200 || ocrRes.statusCode >= 300) {
+                  return null;
+                }
+                final ocrJson = jsonDecode(ocrRes.body);
+                if (ocrJson is! Map) return null;
+                final responses = ocrJson['responses'];
+                if (responses is! List || responses.isEmpty) return null;
+                final first = responses.first;
+                if (first is! Map) return null;
+                final fullText = first['fullTextAnnotation']?['text']?.toString();
+                if (fullText == null || fullText.isEmpty) return null;
+                return extractMrpFromText(fullText, quantityText: quantityText);
+              } catch (_) {
+                return null;
+              }
+            })
+            .toList(growable: false),
       );
 
-      for (final mrp in perImageResults) {
-        if (mrp != null && mrp >= 1) {
-          return MrpResolution(
-            mrp: mrp,
-            source: '${source}_ocr',
-            quantityText: quantityText,
-          );
-        }
+      if (mrp != null && mrp >= 1) {
+        return MrpResolution(
+          mrp: mrp,
+          source: '${source}_ocr',
+          quantityText: quantityText,
+        );
       }
       return null;
     } catch (_) {
       return null;
     }
+  }
+
+  Future<num?> _raceFirstPositive(List<Future<num?>> futures) {
+    if (futures.isEmpty) return Future<num?>.value(null);
+    final completer = Completer<num?>();
+    var remaining = futures.length;
+    for (final future in futures) {
+      future.then(
+        (value) {
+          if (!completer.isCompleted && value != null && value >= 1) {
+            completer.complete(value);
+          }
+        },
+        onError: (_) {},
+      ).whenComplete(() {
+        remaining -= 1;
+        if (!completer.isCompleted && remaining <= 0) {
+          completer.complete(null);
+        }
+      });
+    }
+    return completer.future;
   }
 
   num? _extractDirectMrpFromOffProduct(
@@ -572,7 +605,7 @@ class MrpEnrichmentService {
       }
     }
 
-    return prioritized.take(5).toList(growable: false);
+    return prioritized.take(3).toList(growable: false);
   }
 
   String _resolveImageDirectoryUrl(

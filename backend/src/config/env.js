@@ -15,6 +15,10 @@ const schema = z.object({
     z.string().url().optional(),
   ),
   CORS_ALLOWED_ORIGINS: z.string().trim().min(1).optional(),
+  ADMIN_MODERATION_KEY: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().trim().min(16).optional(),
+  ),
 }).superRefine((values, context) => {
   if (values.NODE_ENV === 'production') {
     const hasFirebaseJson = Boolean(values.FIREBASE_SERVICE_ACCOUNT_JSON);

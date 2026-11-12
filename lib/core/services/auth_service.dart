@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -18,8 +20,10 @@ class AuthService {
   AuthService({
     FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
+    PriceShieldApiClient? apiClient,
   })  : _firebaseAuth = firebaseAuth,
-        _googleSignInOverride = googleSignIn;
+        _googleSignInOverride = googleSignIn,
+        _apiClient = apiClient;
 
   static const _configuredGoogleServerClientId = String.fromEnvironment(
     'PRICESHIELD_GOOGLE_SERVER_CLIENT_ID',
@@ -27,12 +31,14 @@ class AuthService {
 
   final FirebaseAuth? _firebaseAuth;
   final GoogleSignIn? _googleSignInOverride;
+  final PriceShieldApiClient? _apiClient;
   bool _googleInitialized = false;
   Future<void>? _googleInitInFlight;
 
   FirebaseAuth get _auth => _firebaseAuth ?? FirebaseAuth.instance;
   GoogleSignIn get _googleSignIn =>
       _googleSignInOverride ?? GoogleSignIn.instance;
+  PriceShieldApiClient get _api => _apiClient ?? priceShieldApi;
 
   Future<void> _ensureGoogleInitialized() async {
     if (_googleInitialized) return;
@@ -62,8 +68,9 @@ class AuthService {
         password: password,
       );
       final user = credential.user;
-      if (user == null)
+      if (user == null) {
         throw const PriceShieldAuthException('Account could not be created.');
+      }
       await user.updateDisplayName(displayName.trim());
       await user.sendEmailVerification();
       await AuthSession.clear();
@@ -84,12 +91,14 @@ class AuthService {
         password: password,
       );
       final user = credential.user;
-      if (user == null)
+      if (user == null) {
         throw const PriceShieldAuthException('Login could not be completed.');
+      }
       await user.reload();
       final current = _auth.currentUser;
-      if (current == null)
+      if (current == null) {
         throw const PriceShieldAuthException('Login could not be completed.');
+      }
       if (!current.emailVerified) {
         throw const PriceShieldAuthException(
           'Verify your email before signing in.',
@@ -173,30 +182,87 @@ class AuthService {
     }
   }
 
-  Future<void> restoreSession() async {
+  static bool _isPermanentAuthError(String code) {
+    return const {
+      'user-disabled',
+      'user-not-found',
+      'user-token-expired',
+      'invalid-user-token',
+    }.contains(code);
+  }
+
+  Future<void> restoreSession({bool waitForBackendSync = false}) async {
     final user = _auth.currentUser;
     if (user == null) return;
+
     try {
-      await user.reload();
-      final current = _auth.currentUser;
-      if (current == null || !current.emailVerified) {
+      await user.reload().timeout(const Duration(seconds: 4));
+    } on FirebaseAuthException catch (error) {
+      if (_isPermanentAuthError(error.code)) {
         await AuthSession.clear();
         return;
       }
-      await _syncBackendProfile();
-    } on FirebaseAuthException {
+      // Transient offline / network error: preserve cached Firebase session.
+    } catch (_) {
+      // Timeout or non-fatal failure: preserve cached Firebase session.
+    }
+
+    final current = _auth.currentUser;
+    if (current == null || !current.emailVerified) {
       await AuthSession.clear();
-    } on PriceShieldApiException {
-      await AuthSession.clear();
+      return;
+    }
+
+    String? cachedToken;
+    try {
+      cachedToken = await current.getIdToken();
+    } on FirebaseAuthException catch (error) {
+      if (_isPermanentAuthError(error.code)) {
+        await AuthSession.clear();
+        return;
+      }
+    } catch (_) {}
+
+    if (cachedToken != null && cachedToken.isNotEmpty) {
+      await AuthSession.save(
+        token: cachedToken,
+        user: {
+          'email': current.email ?? '',
+          'displayName': current.displayName ?? '',
+          'photoUrl': current.photoURL,
+        },
+      );
+    }
+
+    final syncFuture = _trySyncBackendOnRestore(current);
+    if (waitForBackendSync) {
+      await syncFuture;
+    } else {
+      unawaited(syncFuture);
+    }
+  }
+
+  Future<void> _trySyncBackendOnRestore(User current) async {
+    try {
+      await _syncBackendProfile(
+        fallbackDisplayName: current.displayName,
+      );
+    } on PriceShieldApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        await AuthSession.clear();
+      }
+    } catch (_) {
+      // Preserve local Firebase session on offline/timeout/cold-start errors.
     }
   }
 
   Future<void> reloadVerification({String? displayName, String? mobile}) async {
     final user = _auth.currentUser;
-    if (user == null)
+    if (user == null) {
       throw const PriceShieldAuthException(
         'Registration session expired. Please sign in again.',
       );
+    }
     await user.reload();
     final current = _auth.currentUser;
     if (current == null || !current.emailVerified) {
@@ -211,10 +277,11 @@ class AuthService {
   Future<void> resendVerification() async {
     try {
       final user = _auth.currentUser;
-      if (user == null)
+      if (user == null) {
         throw const PriceShieldAuthException(
           'Registration session expired. Please sign in again.',
         );
+      }
       await user.sendEmailVerification();
     } on FirebaseAuthException catch (error) {
       throw _mapFirebaseError(error);
@@ -240,7 +307,7 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
-    await priceShieldApi.deleteAccount();
+    await _api.deleteAccount();
     try {
       await _auth.currentUser?.delete();
     } on FirebaseAuthException catch (error) {
@@ -263,10 +330,23 @@ class AuthService {
     String? mobile,
     String? fallbackDisplayName,
   }) async {
-    final token = await AuthSession.refreshToken(forceRefresh: true);
-    if (token == null)
+    final currentUser = _auth.currentUser;
+    final token = currentUser != null
+        ? await currentUser.getIdToken(true)
+        : await AuthSession.refreshToken(forceRefresh: true);
+    if (token == null) {
       throw const PriceShieldAuthException('Please sign in again.');
-    var profile = await priceShieldApi.getProfile();
+    }
+    await AuthSession.save(
+      token: token,
+      user: AuthSession.currentUser.value?.data ??
+          {
+            'email': currentUser?.email ?? '',
+            'displayName': currentUser?.displayName ?? '',
+            'photoUrl': currentUser?.photoURL,
+          },
+    );
+    var profile = await _api.getProfile();
     final existingName = profile['displayName']?.toString().trim() ?? '';
     final changes = <String, dynamic>{
       if (displayName != null && displayName.trim().isNotEmpty)
@@ -277,8 +357,9 @@ class AuthService {
         'displayName': fallbackDisplayName.trim(),
       if (mobile != null && mobile.trim().isNotEmpty) 'mobile': mobile.trim(),
     };
-    if (changes.isNotEmpty)
-      profile = await priceShieldApi.updateProfile(changes);
+    if (changes.isNotEmpty) {
+      profile = await _api.updateProfile(changes);
+    }
     await AuthSession.save(token: token, user: profile);
   }
 

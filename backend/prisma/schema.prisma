@@ -30,21 +30,52 @@ enum ProductSubmissionStatus {
   REJECTED
 }
 
+enum VenueType {
+  RETAIL
+  RESTAURANT
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  CARD
+}
+
+enum EvidenceConfidence {
+  UNVERIFIED
+  BASIC
+  STRONG
+  CORROBORATED
+}
+
+enum EvidenceRole {
+  PACKET_MRP
+  PAYMENT_PROOF
+  ITEMIZED_BILL
+  VIDEO_PROOF
+  OTHER
+}
+
 model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  firebaseUid String?     @unique @map("firebase_uid")
-  passwordHash String?    @map("password_hash")
-  emailVerifiedAt DateTime? @map("email_verified_at")
-  displayName String?     @map("display_name")
-  mobile      String?
-  photoUrl    String?     @map("photo_url")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  scans       Scan[]
-  complaints  Complaint[]
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  canonicalEmail     String?             @map("canonical_email")
+  firebaseUid        String?             @unique @map("firebase_uid")
+  passwordHash       String?             @map("password_hash")
+  emailVerifiedAt    DateTime?           @map("email_verified_at")
+  displayName        String?             @map("display_name")
+  mobile             String?
+  photoUrl           String?             @map("photo_url")
+  trustScore         Int                 @default(50) @map("trust_score")
+  riskScore          Int                 @default(0) @map("risk_score")
+  riskFlags          String[]            @default([]) @map("risk_flags")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  scans              Scan[]
+  complaints         Complaint[]
   productSubmissions ProductSubmission[]
 
+  @@index([canonicalEmail])
   @@map("users")
 }
 
@@ -103,30 +134,49 @@ model Scan {
 }
 
 model Complaint {
-  id           String          @id @default(cuid())
-  userId       String          @map("user_id")
-  productId    String?         @map("product_id")
-  productName  String          @map("product_name")
-  barcode      String
-  mrp          Decimal         @db.Decimal(12, 2)
-  chargedPrice Decimal         @map("charged_price") @db.Decimal(12, 2)
-  overcharge   Decimal         @db.Decimal(12, 2)
-  address      String
-  latitude     Decimal?        @db.Decimal(9, 6)
-  longitude    Decimal?        @db.Decimal(9, 6)
-  description  String?
-  purchaseDate DateTime?       @map("purchase_date")
-  status       ComplaintStatus @default(PENDING)
-  withdrawnAt  DateTime?       @map("withdrawn_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  clientRequestId String?       @map("client_request_id")
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product      Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  evidence     Evidence[]
+  id                  String             @id @default(cuid())
+  userId              String             @map("user_id")
+  productId           String?            @map("product_id")
+  productName         String             @map("product_name")
+  barcode             String
+  venueType           VenueType          @default(RETAIL) @map("venue_type")
+  quantity            Int                @default(1)
+  mrp                 Decimal            @db.Decimal(12, 2)
+  chargedPrice        Decimal            @map("charged_price") @db.Decimal(12, 2)
+  totalPaid           Decimal?           @map("total_paid") @db.Decimal(12, 2)
+  overcharge          Decimal            @db.Decimal(12, 2)
+  paymentMethod       PaymentMethod      @default(CASH) @map("payment_method")
+  utrNumber           String?            @map("utr_number")
+  merchantName        String?            @map("merchant_name")
+  merchantVpa         String?            @map("merchant_vpa")
+  storeFingerprint    String?            @map("store_fingerprint")
+  address             String
+  latitude            Decimal?           @db.Decimal(9, 6)
+  longitude           Decimal?           @db.Decimal(9, 6)
+  description         String?
+  purchaseDate        DateTime?          @map("purchase_date")
+  status              ComplaintStatus    @default(PENDING)
+  confidenceLevel     EvidenceConfidence @default(UNVERIFIED) @map("confidence_level")
+  isPublicEligible    Boolean            @default(false) @map("is_public_eligible")
+  riskScore           Int                @default(0) @map("risk_score")
+  riskFlags           String[]           @default([]) @map("risk_flags")
+  moderationNotes     String?            @map("moderation_notes")
+  moderatedAt         DateTime?          @map("moderated_at")
+  merchantResponse    String?            @map("merchant_response")
+  merchantRespondedAt DateTime?          @map("merchant_responded_at")
+  withdrawnAt         DateTime?          @map("withdrawn_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  clientRequestId     String?            @map("client_request_id")
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product             Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  evidence            Evidence[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+  @@index([utrNumber])
+  @@index([storeFingerprint, status])
+  @@index([confidenceLevel, status])
   @@unique([userId, clientRequestId])
   @@map("complaints")
 }
@@ -151,15 +201,18 @@ model ProductSubmission {
 }
 
 model Evidence {
-  id          String            @id @default(cuid())
-  complaintId String            @map("complaint_id")
-  url         String
-  publicId    String?           @map("public_id")
-  resourceType String?          @map("resource_type")
-  mediaType   EvidenceMediaType @map("media_type")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  complaint   Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  id           String            @id @default(cuid())
+  complaintId  String            @map("complaint_id")
+  url          String
+  publicId     String?           @map("public_id")
+  resourceType String?           @map("resource_type")
+  mediaType    EvidenceMediaType @map("media_type")
+  role         EvidenceRole      @default(OTHER)
+  sha256Hash   String?           @map("sha256_hash")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  complaint    Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
 
   @@index([complaintId])
+  @@index([sha256Hash])
   @@map("evidence")
 }

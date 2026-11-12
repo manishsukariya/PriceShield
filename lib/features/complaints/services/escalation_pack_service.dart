@@ -5,6 +5,70 @@ import 'package:priceshield/features/scanner/services/packaging_compliance_servi
 class EscalationPackService {
   const EscalationPackService._();
 
+  static const String verificationPendingWatermark =
+      'Reported claim — verification pending';
+
+  /// Returns true only when a logged, non-rejected, non-withdrawn retail overcharge
+  /// complaint exists. Premature export before logging a complaint, on dine-in
+  /// restaurant venues (SC FHRAI 2017), or on non-overcharged items is blocked.
+  static bool canExportLegalNotice({
+    required num mrp,
+    required num chargedPrice,
+    String venueType = 'RETAIL',
+    String? complaintStatus,
+    bool hasLoggedComplaint = false,
+  }) {
+    if (!hasLoggedComplaint) return false;
+    if (venueType.trim().toUpperCase() == 'RESTAURANT') return false;
+    if (chargedPrice <= mrp) return false;
+    final normalizedStatus = complaintStatus?.trim().toUpperCase();
+    if (normalizedStatus == 'REJECTED' || normalizedStatus == 'WITHDRAWN') {
+      return false;
+    }
+    return true;
+  }
+
+  /// Official Grievance Docket export is additionally locked for UNVERIFIED claims
+  /// (e.g., cash with no packet MRP / proof), which remain private advisory records.
+  static bool canExportOfficialDocket({
+    required num mrp,
+    required num chargedPrice,
+    String venueType = 'RETAIL',
+    String? complaintStatus,
+    String? confidenceLevel,
+    bool hasLoggedComplaint = false,
+  }) {
+    if (!canExportLegalNotice(
+      mrp: mrp,
+      chargedPrice: chargedPrice,
+      venueType: venueType,
+      complaintStatus: complaintStatus,
+      hasLoggedComplaint: hasLoggedComplaint,
+    )) {
+      return false;
+    }
+    final normalizedConfidence = confidenceLevel?.trim().toUpperCase();
+    if (normalizedConfidence == null || normalizedConfidence == 'UNVERIFIED') {
+      return false;
+    }
+    return true;
+  }
+
+  static bool _needsVerificationWatermark({
+    String? confidenceLevel,
+    String? complaintStatus,
+  }) {
+    final conf = confidenceLevel?.trim().toUpperCase();
+    final status = complaintStatus?.trim().toUpperCase();
+    if (conf == null || conf == 'UNVERIFIED' || conf == 'BASIC') {
+      return true;
+    }
+    if (status == 'PENDING') {
+      return true;
+    }
+    return false;
+  }
+
   /// Generates a professional, polite, yet firm legal notice ready to send
   /// to a storekeeper or merchant via WhatsApp or Email.
   ///
@@ -15,22 +79,42 @@ class EscalationPackService {
     required String barcode,
     required num mrp,
     required num chargedPrice,
+    int quantity = 1,
+    num? totalPaid,
+    String? paymentMethod,
+    String? utrNumber,
     String? merchantName,
+    String? merchantVpa,
     String? storeAddress,
+    String? confidenceLevel,
+    String? complaintStatus,
+    String venueType = 'RETAIL',
     DateTime? date,
     PackagingComplianceResult? complianceResult,
   }) {
     final diff = chargedPrice - mrp;
+    final totalDiff = diff * quantity;
     final isOvercharged = diff > 0;
     final now = date ?? DateTime.now();
-    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final dateStr =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
     final targetMerchant = (merchantName != null && merchantName.trim().isNotEmpty)
         ? merchantName.trim()
         : 'Store In-Charge / Merchant';
+    final needsWatermark = _needsVerificationWatermark(
+      confidenceLevel: confidenceLevel,
+      complaintStatus: complaintStatus,
+    );
 
     final buffer = StringBuffer();
     buffer.writeln('*CONSUMER PRICE QUERY / PACKAGING REMINDER*');
+    if (needsWatermark) {
+      buffer.writeln('*Status:* $verificationPendingWatermark');
+    }
     buffer.writeln('*To:* $targetMerchant');
+    if (merchantVpa != null && merchantVpa.trim().isNotEmpty) {
+      buffer.writeln('*Merchant UPI VPA:* ${merchantVpa.trim()}');
+    }
     if (storeAddress != null && storeAddress.trim().isNotEmpty) {
       buffer.writeln('*Location:* ${storeAddress.trim()}');
     }
@@ -43,10 +127,26 @@ class EscalationPackService {
     buffer.writeln('Based on my check of the item purchased / quoted at your store:');
     buffer.writeln('• *Product:* $productName');
     buffer.writeln('• *Barcode:* $barcode');
-    buffer.writeln('• *Printed MRP:* ₹${mrp.toStringAsFixed(2)}');
-    buffer.writeln('• *Price Charged:* ₹${chargedPrice.toStringAsFixed(2)}');
+    if (quantity > 1) {
+      buffer.writeln('• *Quantity:* $quantity');
+    }
+    buffer.writeln('• *Printed MRP (per unit):* ₹${mrp.toStringAsFixed(2)}');
+    buffer.writeln('• *Price Charged (per unit):* ₹${chargedPrice.toStringAsFixed(2)}');
+    if (totalPaid != null) {
+      buffer.writeln('• *Total Paid:* ₹${totalPaid.toStringAsFixed(2)}');
+    }
+    if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
+      final refPart = (utrNumber != null && utrNumber.trim().isNotEmpty)
+          ? ' (UTR/Ref: ${utrNumber.trim()})'
+          : '';
+      buffer.writeln('• *Payment Mode:* ${paymentMethod.trim()}$refPart');
+    }
     if (isOvercharged) {
-      buffer.writeln('• *Reported Difference Above MRP:* ₹${diff.toStringAsFixed(2)}');
+      buffer.writeln('• *Reported Difference Above MRP:* ₹${diff.toStringAsFixed(2)} per unit'
+          '${quantity > 1 ? ' (Total: ₹${totalDiff.toStringAsFixed(2)})' : ''}');
+    }
+    if (confidenceLevel != null && confidenceLevel.trim().isNotEmpty) {
+      buffer.writeln('• *Evidence Tier:* ${confidenceLevel.trim().toUpperCase()}');
     }
 
     if (complianceResult != null && complianceResult.hasViolation) {
@@ -69,7 +169,7 @@ class EscalationPackService {
     buffer.writeln();
     if (isOvercharged) {
       buffer.writeln(
-        'I kindly request an amicable resolution and a refund of the excess amount of *₹${diff.toStringAsFixed(2)}*, along with an update to your billing records to reflect the statutory MRP.',
+        'I kindly request an amicable resolution and a refund of the excess amount of *₹${totalDiff.toStringAsFixed(2)}*, along with an update to your billing records to reflect the statutory MRP.',
       );
     } else {
       buffer.writeln(
@@ -96,28 +196,58 @@ class EscalationPackService {
     required String barcode,
     required num mrp,
     required num chargedPrice,
+    int quantity = 1,
+    num? totalPaid,
+    String? paymentMethod,
+    String? utrNumber,
     String? docketId,
     String? merchantName,
+    String? merchantVpa,
     String? storeAddress,
+    String? confidenceLevel,
+    String? complaintStatus,
+    String venueType = 'RETAIL',
     DateTime? incidentDate,
     PackagingComplianceResult? complianceResult,
     String? evidenceSummary,
   }) {
     final diff = chargedPrice - mrp;
+    final totalDiff = diff * quantity;
     final overchargePercent = mrp > 0 ? ((diff / mrp) * 100).toStringAsFixed(1) : '0';
     final timestamp = incidentDate ?? DateTime.now();
     final dateStr =
         '${timestamp.day.toString().padLeft(2, '0')}/${timestamp.month.toString().padLeft(2, '0')}/${timestamp.year}';
     final ref = docketId ?? 'PS-${timestamp.millisecondsSinceEpoch.toRadixString(16).toUpperCase()}';
+    final conf = confidenceLevel?.trim().toUpperCase();
+    final needsWatermark = _needsVerificationWatermark(
+      confidenceLevel: confidenceLevel,
+      complaintStatus: complaintStatus,
+    );
 
     final buffer = StringBuffer();
     buffer.writeln('================================================================================');
     buffer.writeln('FORMAL CONSUMER GRIEVANCE DOCKET (USER-PREPARED FACT SHEET)');
+    if (needsWatermark) {
+      buffer.writeln('*** WATERMARK: ${verificationPendingWatermark.toUpperCase()} ***');
+    }
+    if (conf == 'UNVERIFIED') {
+      buffer.writeln('*** PRIVATE ADVISORY RECORD ONLY — UNVERIFIED CLAIM (ATTACH PACKET/BILL PROOF) ***');
+    }
     buffer.writeln('National Consumer Helpline (NCH - 1915) | INGRAM Portal | E-Daakhil DCDRC');
     buffer.writeln('Prepared via PriceShield Consumer Assistance Tool');
     buffer.writeln('================================================================================');
     buffer.writeln('Docket Reference : $ref');
     buffer.writeln('Date of Incident : $dateStr');
+    buffer.writeln('Venue Context    : ${venueType.trim().toUpperCase()}');
+    if (conf != null && conf.isNotEmpty) {
+      buffer.writeln('Confidence Tier  : $conf');
+    }
+    if (complaintStatus != null && complaintStatus.trim().isNotEmpty) {
+      buffer.writeln('Case Status      : ${complaintStatus.trim().toUpperCase()}');
+    }
+    if (needsWatermark) {
+      buffer.writeln('Verification Note: $verificationPendingWatermark');
+    }
     buffer.writeln('Relevant Acts    : Legal Metrology Act, 2009 & Consumer Protection Act, 2019');
     buffer.writeln();
     buffer.writeln('1. COMPLAINANT STATEMENT:');
@@ -126,14 +256,28 @@ class EscalationPackService {
     buffer.writeln();
     buffer.writeln('2. RESPONDENT (RETAILER / MERCHANT) DETAILS:');
     buffer.writeln('   Store / Business Name : ${merchantName?.trim().isNotEmpty == true ? merchantName!.trim() : 'Unspecified Retail Store'}');
+    if (merchantVpa != null && merchantVpa.trim().isNotEmpty) {
+      buffer.writeln('   Merchant UPI VPA      : ${merchantVpa.trim()}');
+    }
     buffer.writeln('   Premises Address      : ${storeAddress?.trim().isNotEmpty == true ? storeAddress!.trim() : 'Recorded in device incident notes'}');
     buffer.writeln();
     buffer.writeln('3. COMMODITY & TRANSACTION PARTICULARS:');
     buffer.writeln('   Item Description      : $productName');
     buffer.writeln('   GTIN / Barcode        : $barcode');
-    buffer.writeln('   Printed MRP (Entered) : ₹${mrp.toStringAsFixed(2)}');
-    buffer.writeln('   Price Demanded/Charged: ₹${chargedPrice.toStringAsFixed(2)}');
-    buffer.writeln('   Reported Difference   : ₹${diff.toStringAsFixed(2)} ($overchargePercent% above printed MRP)');
+    buffer.writeln('   Quantity              : $quantity');
+    buffer.writeln('   Printed MRP (Unit)    : ₹${mrp.toStringAsFixed(2)}');
+    buffer.writeln('   Price Charged (Unit)  : ₹${chargedPrice.toStringAsFixed(2)}');
+    if (totalPaid != null) {
+      buffer.writeln('   Total Basket Paid     : ₹${totalPaid.toStringAsFixed(2)}');
+    }
+    if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
+      buffer.writeln('   Payment Method        : ${paymentMethod.trim().toUpperCase()}');
+    }
+    if (utrNumber != null && utrNumber.trim().isNotEmpty) {
+      buffer.writeln('   Transaction / UTR Ref : ${utrNumber.trim().toUpperCase()}');
+    }
+    buffer.writeln('   Reported Difference   : ₹${diff.toStringAsFixed(2)}/unit ($overchargePercent% above printed MRP)'
+        '${quantity > 1 ? ' | Total: ₹${totalDiff.toStringAsFixed(2)}' : ''}');
     if (complianceResult != null && complianceResult.hasViolation) {
       buffer.writeln('   Packaging Flag        : ${complianceResult.title}');
       buffer.writeln('   Flag Detail           : ${complianceResult.description}');
@@ -156,20 +300,20 @@ class EscalationPackService {
     }
     buffer.writeln();
     buffer.writeln('5. DEVICE EVIDENCE NOTES:');
-    buffer.writeln('   • Barcode and on-device OCR readings logged with device timestamp (user-verified).');
+    buffer.writeln('   • Barcode and on-device readings logged with transaction metadata.');
     if (evidenceSummary != null && evidenceSummary.trim().isNotEmpty) {
-      buffer.writeln('   • Additional Evidence: ${evidenceSummary.trim()}');
+      buffer.writeln('   • Attached Evidence: ${evidenceSummary.trim()}');
     } else {
       buffer.writeln('   • Photographic package & bill evidence recommended for official submission.');
     }
     buffer.writeln();
     buffer.writeln('6. REQUESTED RESOLUTION:');
-    buffer.writeln('   a) Refund verification of reported difference (₹${diff.toStringAsFixed(2)}).');
+    buffer.writeln('   a) Refund verification of reported difference (₹${totalDiff.toStringAsFixed(2)}).');
     buffer.writeln('   b) Inspection and verification by the appropriate Legal Metrology authority if warranted.');
     buffer.writeln('   c) Appropriate action under applicable consumer protection rules.');
     buffer.writeln();
-    buffer.writeln('Disclaimer: OCR and catalog entries are user-verified advisory inputs and not legal');
-    buffer.writeln('proof. Submit packet/bill photos directly via consumerhelpline.gov.in or 1915.');
+    buffer.writeln('Disclaimer: User-entered figures and catalog entries are advisory inputs pending');
+    buffer.writeln('official verification. Submit packet/bill photos via consumerhelpline.gov.in or 1915.');
     buffer.writeln('================================================================================');
 
     return buffer.toString().trim();

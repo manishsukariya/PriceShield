@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 class CloudinaryUpload {
@@ -8,11 +9,13 @@ class CloudinaryUpload {
     required this.secureUrl,
     required this.publicId,
     required this.resourceType,
+    required this.sha256Hash,
   });
 
   final String secureUrl;
   final String publicId;
   final String resourceType;
+  final String sha256Hash;
 }
 
 /// Uploads client-selected files using restricted unsigned Cloudinary presets.
@@ -36,6 +39,11 @@ class CloudinaryUploadService {
         defaultValue: 'priceshield_images',
       );
 
+  static Future<String> computeSha256(File file) async {
+    final digest = await file.openRead().transform(sha256).first;
+    return digest.toString().toLowerCase();
+  }
+
   static Future<CloudinaryUpload> uploadFile({
     required File file,
     required bool isVideo,
@@ -54,6 +62,8 @@ class CloudinaryUploadService {
       final limitMb = isVideo ? 25 : 10;
       throw StateError('Please choose a file smaller than $limitMb MB.');
     }
+
+    final sha256Hash = await computeSha256(file);
 
     final resourceType = isVideo ? 'video' : 'image';
     final uri = Uri.https(
@@ -97,6 +107,7 @@ class CloudinaryUploadService {
       secureUrl: secureUrl,
       publicId: publicId,
       resourceType: payload['resource_type']?.toString() ?? resourceType,
+      sha256Hash: sha256Hash,
     );
   }
 }

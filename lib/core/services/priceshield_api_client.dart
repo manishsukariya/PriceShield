@@ -171,6 +171,13 @@ class PriceShieldApiClient {
     required num mrp,
     required num chargedPrice,
     required String address,
+    String venueType = 'RETAIL',
+    int quantity = 1,
+    num? totalPaid,
+    String paymentMethod = 'CASH',
+    String? utrNumber,
+    String? merchantName,
+    String? merchantVpa,
     DateTime? purchaseDate,
     double? latitude,
     double? longitude,
@@ -181,10 +188,20 @@ class PriceShieldApiClient {
     'POST',
     '/complaints',
     body: {
+      'venueType': venueType,
       'barcode': barcode,
       'productName': productName,
+      'quantity': quantity,
       'mrp': mrp,
       'chargedPrice': chargedPrice,
+      'totalPaid': totalPaid ?? (chargedPrice * quantity),
+      'paymentMethod': paymentMethod,
+      if (utrNumber != null && utrNumber.trim().isNotEmpty)
+        'utrNumber': utrNumber.trim().toUpperCase(),
+      if (merchantName != null && merchantName.trim().isNotEmpty)
+        'merchantName': merchantName.trim(),
+      if (merchantVpa != null && merchantVpa.trim().isNotEmpty)
+        'merchantVpa': merchantVpa.trim().toLowerCase(),
       'address': address,
       if (purchaseDate != null) 'purchaseDate': purchaseDate.toIso8601String(),
       'latitude': ?latitude,
@@ -195,6 +212,41 @@ class PriceShieldApiClient {
       'clientRequestId': ?clientRequestId,
     },
   );
+
+  Future<Map<String, dynamic>> addComplaintEvidence(
+    String complaintId,
+    Map<String, dynamic> evidenceItem,
+  ) => _requestMap(
+    'POST',
+    '/complaints/${Uri.encodeComponent(complaintId)}/evidence',
+    body: evidenceItem,
+  );
+
+  Future<Map<String, dynamic>> getStoreRisk({
+    String? storeFingerprint,
+    String? merchantVpa,
+    String? merchantName,
+    String? address,
+  }) {
+    final query = <String, String>{};
+    if (storeFingerprint != null && storeFingerprint.trim().isNotEmpty) {
+      query['storeFingerprint'] = storeFingerprint.trim();
+    }
+    if (merchantVpa != null && merchantVpa.trim().isNotEmpty) {
+      query['merchantVpa'] = merchantVpa.trim().toLowerCase();
+    }
+    if (merchantName != null && merchantName.trim().isNotEmpty) {
+      query['merchantName'] = merchantName.trim();
+    }
+    if (address != null && address.trim().isNotEmpty) {
+      query['address'] = address.trim();
+    }
+    return _requestMap(
+      'GET',
+      '/stores/risk?${Uri(queryParameters: query).query}',
+      authenticated: false,
+    );
+  }
 
   Future<Map<String, dynamic>> createProductSubmission({
     required String barcode,

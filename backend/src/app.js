@@ -10,7 +10,7 @@ import { createRateLimiter } from './middleware/rate-limit.js';
 import { apiRoutes } from './routes/index.js';
 import { createFirebaseTokenVerifier } from './config/firebase-admin.js';
 
-export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, fetchFn } = {}) {
+export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, fetchFn, complaintRateLimit } = {}) {
   const app = express();
   const tokenVerifier = verifyToken ?? createFirebaseTokenVerifier(env);
   const authenticate = createAuthenticate(tokenVerifier, prismaClient);
@@ -38,7 +38,7 @@ export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, 
     windowMs: 60 * 1000,
     max: 120,
     skip: () => env.NODE_ENV === 'test',
-  }), apiRoutes({ prisma: prismaClient, authenticate, authenticateOptional, env, fetchFn }));
+  }), apiRoutes({ prisma: prismaClient, authenticate, authenticateOptional, env, fetchFn, complaintRateLimit }));
   app.use(notFound);
   app.use(errorHandler);
   return app;

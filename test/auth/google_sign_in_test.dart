@@ -1,13 +1,63 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:priceshield/core/services/auth_service.dart';
 import 'package:priceshield/core/services/auth_session.dart';
+import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/auth/presentation/screens/register_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:priceshield/features/auth/presentation/screens/verify_otp_screen.dart';
 import 'package:priceshield/features/auth/presentation/widgets/google_sign_in_button.dart';
+
+class _FakeFirebaseUser implements User {
+  _FakeFirebaseUser({
+    required this.verified,
+    this.onReload,
+  });
+
+  final bool verified;
+  final Future<void> Function()? onReload;
+
+  @override
+  bool get emailVerified => verified;
+
+  @override
+  String? get email => 'scout@priceshield.app';
+
+  @override
+  String? get displayName => 'Manish';
+
+  @override
+  String? get photoURL => null;
+
+  @override
+  Future<void> reload() async {
+    if (onReload != null) await onReload!();
+  }
+
+  @override
+  Future<String?> getIdToken([bool forceRefresh = false]) async =>
+      forceRefresh ? 'fresh-firebase-token' : 'cached-firebase-token';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeFirebaseAuth implements FirebaseAuth {
+  _FakeFirebaseAuth(this.user);
+
+  final User? user;
+
+  @override
+  User? get currentUser => user;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _FakeAuthService extends AuthService {
   _FakeAuthService({this.onGoogleSignIn});
@@ -311,6 +361,65 @@ void main() {
 
       expect(fakeAuth.googleCalls, 1);
       expect(find.text('HOME_ROUTE'), findsOneWidget);
+    });
+  });
+
+  group('AuthService.restoreSession resilience', () {
+    test('preserves cached Firebase session when offline or backend times out (503)', () async {
+      final fakeUser = _FakeFirebaseUser(
+        verified: true,
+        onReload: () async {
+          throw FirebaseAuthException(code: 'network-request-failed');
+        },
+      );
+      final apiClient = PriceShieldApiClient(
+        client: MockClient((_) async => http.Response('{"error":{"message":"sleeping"}}', 503)),
+        tokenProvider: () async => 'cached-firebase-token',
+      );
+      final service = AuthService(
+        firebaseAuth: _FakeFirebaseAuth(fakeUser),
+        apiClient: apiClient,
+      );
+
+      await service.restoreSession(waitForBackendSync: true);
+
+      expect(AuthSession.isSignedIn, isTrue);
+      expect(AuthSession.currentUser.value?.email, 'scout@priceshield.app');
+      expect(AuthSession.currentUser.value?.displayName, 'Manish');
+    });
+
+    test('clears session when backend rejects token with 401 unauthorized', () async {
+      final fakeUser = _FakeFirebaseUser(verified: true);
+      final apiClient = PriceShieldApiClient(
+        client: MockClient((_) async => http.Response('{"error":{"message":"invalid"}}', 401)),
+        tokenProvider: () async => 'fresh-firebase-token',
+      );
+      final service = AuthService(
+        firebaseAuth: _FakeFirebaseAuth(fakeUser),
+        apiClient: apiClient,
+      );
+
+      await service.restoreSession(waitForBackendSync: true);
+
+      expect(AuthSession.isSignedIn, isFalse);
+      expect(AuthSession.currentUser.value, isNull);
+    });
+
+    test('clears session when Firebase account is disabled', () async {
+      final fakeUser = _FakeFirebaseUser(
+        verified: true,
+        onReload: () async {
+          throw FirebaseAuthException(code: 'user-disabled');
+        },
+      );
+      final service = AuthService(
+        firebaseAuth: _FakeFirebaseAuth(fakeUser),
+      );
+
+      await service.restoreSession(waitForBackendSync: true);
+
+      expect(AuthSession.isSignedIn, isFalse);
+      expect(AuthSession.currentUser.value, isNull);
     });
   });
 }

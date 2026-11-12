@@ -45,9 +45,23 @@ function createMockPrisma() {
     },
     productSubmission: {
       create: async ({ data }) => {
-        const item = { id: `sub-${nextId++}`, status: 'PENDING', ...data, createdAt: new Date() };
+        const item = { id: `sub-${nextId++}`, status: 'PENDING', ...data, createdAt: new Date(), updatedAt: new Date() };
         submissions.push(item);
         return item;
+      },
+      findMany: async ({ where = {}, take = 21 } = {}) => {
+        return submissions
+          .filter((item) => (!where.userId || item.userId === where.userId) && (!where.status || item.status === where.status))
+          .slice(0, take);
+      },
+      findUnique: async ({ where }) => {
+        return submissions.find((item) => item.id === where.id) ?? null;
+      },
+      update: async ({ where, data }) => {
+        const idx = submissions.findIndex((item) => item.id === where.id);
+        if (idx === -1) return null;
+        submissions[idx] = { ...submissions[idx], ...data, updatedAt: new Date() };
+        return submissions[idx];
       },
     },
     scan: {
@@ -70,6 +84,7 @@ const env = {
   JWT_SECRET: 'test-secret-that-is-long-enough-for-signing',
   JWT_EXPIRES_IN: '1h',
   CORS_ALLOWED_ORIGIN: undefined,
+  ADMIN_MODERATION_KEY: 'test-admin-moderation-secret-key',
 };
 
 function setupTestApp({ products = [], fetchFn } = {}) {
@@ -500,5 +515,44 @@ describe('Product route with Open Food Facts fallback', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.mrp).toBe(45);
     expect(res.body.data.mrpSource).toBe('open_prices');
+  });
+
+  it('rejects admin moderation without valid key and promotes approved submissions into catalog', async () => {
+    const { app, memory } = setupTestApp({ products: [] });
+
+    const created = await request(app)
+      .post('/api/v1/product-submissions')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        barcode: '8901234567001',
+        productName: 'Balaji Wafers Simply Salted 40g',
+        printedMrp: 10,
+      });
+    expect(created.status).toBe(201);
+    const subId = created.body.data.id;
+
+    // Wrong or missing key is blocked
+    const badAuth = await request(app)
+      .get('/api/v1/admin/product-submissions')
+      .set('x-admin-key', 'wrong-key');
+    expect(badAuth.status).toBe(403);
+
+    // Moderator lists pending submissions
+    const pendingList = await request(app)
+      .get('/api/v1/admin/product-submissions?status=PENDING')
+      .set('x-admin-key', env.ADMIN_MODERATION_KEY);
+    expect(pendingList.status).toBe(200);
+    expect(pendingList.body.data).toHaveLength(1);
+    expect(pendingList.body.data[0].barcode).toBe('8901234567001');
+
+    // Approve & promote to catalog_db
+    const approved = await request(app)
+      .patch(`/api/v1/admin/product-submissions/${subId}`)
+      .set('x-admin-key', env.ADMIN_MODERATION_KEY)
+      .send({ status: 'REVIEWED' });
+    expect(approved.status).toBe(200);
+    expect(approved.body.data.submission.status).toBe('REVIEWED');
+    expect(approved.body.data.catalogProduct.mrp).toBe(10);
+    expect(memory.products.get('8901234567001').mrp).toBe(10);
   });
 });

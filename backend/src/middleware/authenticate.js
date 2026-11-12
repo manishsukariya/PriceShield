@@ -1,4 +1,5 @@
 import { AppError } from './errors.js';
+import { normalizeCanonicalEmail } from '../utils/anti-fraud.js';
 
 export function authenticate(verifyToken, prismaClient) {
   return async (request, _response, next) => {
@@ -27,6 +28,7 @@ export function authenticate(verifyToken, prismaClient) {
       if (typeof decoded.email !== 'string' || !decoded.email) {
         return next(new AppError(401, 'UNAUTHENTICATED', 'The Firebase account has no email address.'));
       }
+      const canonicalEmail = normalizeCanonicalEmail(decoded.email);
       let user = await prismaClient.user.findUnique({ where: { firebaseUid: decoded.uid } });
       if (!user) {
         const byEmail = await prismaClient.user.findUnique({ where: { email: decoded.email.toLowerCase() } });
@@ -34,8 +36,12 @@ export function authenticate(verifyToken, prismaClient) {
           return next(new AppError(409, 'ACCOUNT_LINK_CONFLICT', 'This email is already linked to another account.'));
         }
         user = byEmail
-          ? await prismaClient.user.update({ where: { id: byEmail.id }, data: { firebaseUid: decoded.uid, emailVerifiedAt: new Date() } })
-          : await prismaClient.user.create({ data: { firebaseUid: decoded.uid, email: decoded.email.toLowerCase(), emailVerifiedAt: new Date(), displayName: decoded.name ?? null, passwordHash: null } });
+          ? await prismaClient.user.update({ where: { id: byEmail.id }, data: { firebaseUid: decoded.uid, canonicalEmail, emailVerifiedAt: new Date() } })
+          : await prismaClient.user.create({ data: { firebaseUid: decoded.uid, email: decoded.email.toLowerCase(), canonicalEmail, emailVerifiedAt: new Date(), displayName: decoded.name ?? null, passwordHash: null } });
+      } else if (!user.canonicalEmail && canonicalEmail) {
+        user = typeof prismaClient.user?.update === 'function'
+          ? await prismaClient.user.update({ where: { id: user.id }, data: { canonicalEmail } })
+          : { ...user, canonicalEmail };
       }
       request.user = user;
       return next();
@@ -56,14 +62,19 @@ export function authenticateOptional(verifyToken, prismaClient) {
     try {
       const decoded = await verifyToken(token);
       if (decoded?.uid && decoded.email && decoded.email_verified === true) {
+        const canonicalEmail = normalizeCanonicalEmail(decoded.email);
         let user = await prismaClient.user.findUnique({ where: { firebaseUid: decoded.uid } });
         if (!user) {
           const byEmail = await prismaClient.user.findUnique({ where: { email: decoded.email.toLowerCase() } });
           if (!byEmail?.firebaseUid || byEmail.firebaseUid === decoded.uid) {
             user = byEmail
-              ? await prismaClient.user.update({ where: { id: byEmail.id }, data: { firebaseUid: decoded.uid, emailVerifiedAt: new Date() } })
-              : await prismaClient.user.create({ data: { firebaseUid: decoded.uid, email: decoded.email.toLowerCase(), emailVerifiedAt: new Date(), displayName: decoded.name ?? null, passwordHash: null } });
+              ? await prismaClient.user.update({ where: { id: byEmail.id }, data: { firebaseUid: decoded.uid, canonicalEmail, emailVerifiedAt: new Date() } })
+              : await prismaClient.user.create({ data: { firebaseUid: decoded.uid, email: decoded.email.toLowerCase(), canonicalEmail, emailVerifiedAt: new Date(), displayName: decoded.name ?? null, passwordHash: null } });
           }
+        } else if (!user.canonicalEmail && canonicalEmail) {
+          user = typeof prismaClient.user?.update === 'function'
+            ? await prismaClient.user.update({ where: { id: user.id }, data: { canonicalEmail } })
+            : { ...user, canonicalEmail };
         }
         request.user = user ?? null;
       }

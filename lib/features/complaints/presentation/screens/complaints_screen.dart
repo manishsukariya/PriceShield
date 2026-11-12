@@ -173,7 +173,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ? _items
         : _items.where((item) => _status(item) == _filter).toList();
     final resolved = _items.where((item) => _status(item) == 'RESOLVED').length;
-    final active = _items.length - resolved;
+    final active = _items.where((item) => _status(item) == 'PENDING').length;
 
     return Scaffold(
       backgroundColor: PriceShieldColors.background,
@@ -225,12 +225,19 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   Widget _metric(String label, int value) => Expanded(child: Column(children: [Text('$value', style: const TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(label, style: const TextStyle(color: Color(0xffC9D5E6), fontSize: 12))]));
   Widget _separator() => Container(width: 1, height: 42, color: Colors.white24);
 
-  Widget _filters() => SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['ALL', 'PENDING', 'RESOLVED'].map((value) { final selected = _filter == value; return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(value[0] + value.substring(1).toLowerCase()), selected: selected, onSelected: (_) => setState(() => _filter = value), selectedColor: PriceShieldColors.navy, labelStyle: TextStyle(color: selected ? Colors.white : PriceShieldColors.muted, fontWeight: FontWeight.w700), backgroundColor: Colors.white, side: const BorderSide(color: PriceShieldColors.border))); }).toList()));
+  Widget _filters() => SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['ALL', 'PENDING', 'RESOLVED', 'REJECTED'].map((value) { final selected = _filter == value; return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(value[0] + value.substring(1).toLowerCase()), selected: selected, onSelected: (_) => setState(() => _filter = value), selectedColor: PriceShieldColors.navy, labelStyle: TextStyle(color: selected ? Colors.white : PriceShieldColors.muted, fontWeight: FontWeight.w700), backgroundColor: Colors.white, side: const BorderSide(color: PriceShieldColors.border))); }).toList()));
 
   Widget _complaintCard(Map<String, dynamic> item) {
     final status = _status(item);
-    final resolved = status == 'RESOLVED';
-    final statusColor = resolved ? PriceShieldColors.success : PriceShieldColors.warning;
+    final confidence = item['confidenceLevel']?.toString().toUpperCase();
+    final merchantName = item['merchantName']?.toString();
+    final statusColor = status == 'RESOLVED'
+        ? PriceShieldColors.success
+        : status == 'REJECTED'
+            ? PriceShieldColors.danger
+            : status == 'WITHDRAWN'
+                ? PriceShieldColors.muted
+                : PriceShieldColors.warning;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
@@ -249,10 +256,31 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 Row(children: [
                   Container(width: 44, height: 44, decoration: BoxDecoration(color: PriceShieldColors.mint, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.receipt_long_rounded, color: PriceShieldColors.primary)),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(item['productName']?.toString() ?? 'Product complaint', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item['productName']?.toString() ?? 'Product complaint', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        if (merchantName != null && merchantName.isNotEmpty)
+                          Text(merchantName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: PriceShieldColors.muted)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   StatusPill(label: _friendlyStatus(status), color: statusColor),
                 ]),
-                const SizedBox(height: 16),
+                if (confidence != null && confidence.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  StatusPill(
+                    label: confidence == 'UNVERIFIED' ? 'UNVERIFIED (Private)' : confidence,
+                    color: confidence == 'STRONG' || confidence == 'CORROBORATED'
+                        ? PriceShieldColors.success
+                        : confidence == 'BASIC'
+                            ? const Color(0xff2563EB)
+                            : PriceShieldColors.warning,
+                  ),
+                ],
+                const SizedBox(height: 14),
                 Row(children: [_amount('MRP', item['mrp']), _amount('Charged', item['chargedPrice']), _amount('Overcharge', item['overcharge'], PriceShieldColors.danger)]),
                 const SizedBox(height: 14),
                 const Row(children: [Expanded(child: Text('View case details', style: TextStyle(color: PriceShieldColors.primary, fontWeight: FontWeight.w700))), Icon(Icons.arrow_forward_rounded, color: PriceShieldColors.primary, size: 18)]),

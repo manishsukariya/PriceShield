@@ -286,9 +286,10 @@ void main() {
       expect(find.text('Bisleri Mineral Water 1L'), findsOneWidget);
       expect(find.text('Barcode: 8906017290048'), findsOneWidget);
 
-      // Verify Escalation pack buttons
-      expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsOneWidget);
-      expect(find.text('Export Official Grievance Docket'), findsOneWidget);
+      // Verify premature Escalation pack buttons are gated before complaint is logged
+      expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsNothing);
+      expect(find.text('Export Official Grievance Docket'), findsNothing);
+      expect(find.text('Legal Notice & Docket Locked Until Logged'), findsOneWidget);
 
       // Verify Deescalation and Complaint action buttons
       expect(find.text('De-escalation Co-Pilot & Law Card'), findsOneWidget);
@@ -325,9 +326,10 @@ void main() {
       // Consumer advisory badge should also be displayed
       expect(find.text('🛡️ Consumer Advisory • Verify packet MRP & save receipt'), findsOneWidget);
 
-      // Escalation buttons are accessible
-      expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsOneWidget);
-      expect(find.text('Export Official Grievance Docket'), findsOneWidget);
+      // Premature Escalation buttons must remain locked when no overcharge or complaint exists
+      expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsNothing);
+      expect(find.text('Export Official Grievance Docket'), findsNothing);
+      expect(find.text('Legal Docket Locked (Within MRP)'), findsOneWidget);
     });
 
     testWidgets('renders Dine-in Venue Context warning when venueType is RESTAURANT',
@@ -351,6 +353,8 @@ void main() {
 
       expect(find.text('DINE-IN VENUE CONTEXT (SC FHRAI 2017)'), findsOneWidget);
       expect(find.textContaining('seated restaurants providing table service'), findsOneWidget);
+      expect(find.text('Formal MRP Docket Not Applicable (Dine-In)'), findsOneWidget);
+      expect(find.text('File a formal complaint'), findsNothing);
     });
 
     testWidgets('renders Stealth Safe-Exit button and opens bottom sheet on tap',

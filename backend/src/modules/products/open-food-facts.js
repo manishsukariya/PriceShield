@@ -14,7 +14,8 @@ const IMAGE_CDN_BY_SOURCE = {
   open_products_facts: 'https://images.openproductsfacts.org/images/products',
 };
 
-const DEFAULT_TIMEOUT_MS = 2500;
+const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_ENRICH_TIMEOUT_MS = 12000;
 const USER_AGENT = 'PriceShield - Android - Version 1.0 (support@priceshield.app)';
 
 function roundMrp(value) {
@@ -328,7 +329,31 @@ function selectOcrCandidateImageIds(product) {
     }
   }
 
-  return prioritized.slice(0, 5);
+  return prioritized.slice(0, 3);
+}
+
+function raceFirstPositiveMrp(promises) {
+  if (promises.length === 0) return Promise.resolve(0);
+  return new Promise((resolve) => {
+    let remaining = promises.length;
+    let settled = false;
+    for (const promise of promises) {
+      Promise.resolve(promise)
+        .then((value) => {
+          if (!settled && value > 0) {
+            settled = true;
+            resolve(value);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          remaining -= 1;
+          if (!settled && remaining <= 0) {
+            resolve(0);
+          }
+        });
+    }
+  });
 }
 
 async function fetchFromOpenPricesInr(barcode, fetchFn, timeoutMs) {
@@ -370,7 +395,7 @@ async function fetchMrpFromOffImageOcr(product, barcode, source, fetchFn, timeou
     const dirUrl = resolveImageDirectoryUrl(product, barcode, source);
     if (!dirUrl) return 0;
 
-    const results = await Promise.allSettled(
+    return await raceFirstPositiveMrp(
       imageIds.map(async (id) => {
         const res = await fetchFn(`${dirUrl}/${id}.json`, {
           headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
@@ -383,13 +408,6 @@ async function fetchMrpFromOffImageOcr(product, barcode, source, fetchFn, timeou
         return extractMrpFromText(ocrText, { quantityText: product.quantity });
       }),
     );
-
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value > 0) {
-        return result.value;
-      }
-    }
-    return 0;
   } catch {
     return 0;
   }
@@ -437,7 +455,14 @@ function parseProductPayload(product, barcode, source) {
   };
 }
 
-async function fetchFromEndpoint(baseUrl, source, barcode, fetchFn, timeoutMs) {
+async function fetchFromEndpoint(
+  baseUrl,
+  source,
+  barcode,
+  fetchFn,
+  timeoutMs,
+  enrichTimeoutMs = DEFAULT_ENRICH_TIMEOUT_MS,
+) {
   try {
     const url = `${baseUrl}/${encodeURIComponent(barcode)}.json`;
     const response = await fetchFn(url, {
@@ -459,17 +484,28 @@ async function fetchFromEndpoint(baseUrl, source, barcode, fetchFn, timeoutMs) {
 
     const parsed = parseProductPayload(body.product, barcode, source);
     if (parsed.mrp <= 0) {
-      const enrichTimeout = Math.min(2000, timeoutMs);
-      const [ocrMrp, openPricesMrp] = await Promise.all([
-        fetchMrpFromOffImageOcr(body.product, barcode, source, fetchFn, enrichTimeout),
-        fetchFromOpenPricesInr(barcode, fetchFn, enrichTimeout),
-      ]);
+      const effectiveEnrichTimeout = Math.max(enrichTimeoutMs, timeoutMs);
+      const ocrPromise = fetchMrpFromOffImageOcr(
+        body.product,
+        barcode,
+        source,
+        fetchFn,
+        effectiveEnrichTimeout,
+      );
+      const openPricesMrp = await fetchFromOpenPricesInr(
+        barcode,
+        fetchFn,
+        Math.min(effectiveEnrichTimeout, 5000),
+      );
       if (openPricesMrp > 0) {
         parsed.mrp = openPricesMrp;
         parsed.mrpSource = 'open_prices';
-      } else if (ocrMrp > 0) {
-        parsed.mrp = ocrMrp;
-        parsed.mrpSource = `${source}_ocr`;
+      } else {
+        const ocrMrp = await ocrPromise;
+        if (ocrMrp > 0) {
+          parsed.mrp = ocrMrp;
+          parsed.mrpSource = `${source}_ocr`;
+        }
       }
     }
 
@@ -481,7 +517,11 @@ async function fetchFromEndpoint(baseUrl, source, barcode, fetchFn, timeoutMs) {
 
 export async function fetchFromOpenFoodFacts(
   barcode,
-  { fetchFn = fetch, timeoutMs = DEFAULT_TIMEOUT_MS } = {},
+  {
+    fetchFn = fetch,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    enrichTimeoutMs = DEFAULT_ENRICH_TIMEOUT_MS,
+  } = {},
 ) {
   // 1. Primary lookup: Open Food Facts (fastest & largest food/groceries database)
   const primaryResult = await fetchFromEndpoint(
@@ -490,6 +530,7 @@ export async function fetchFromOpenFoodFacts(
     barcode,
     fetchFn,
     timeoutMs,
+    enrichTimeoutMs,
   );
   if (primaryResult) {
     return primaryResult;
@@ -497,10 +538,10 @@ export async function fetchFromOpenFoodFacts(
 
   // 2. Multi-source fallback: Check Open Beauty Facts (soaps/shampoos) and Open Products Facts
   try {
-    const fallbackTimeoutMs = Math.min(1800, timeoutMs);
+    const fallbackTimeoutMs = Math.min(4000, timeoutMs);
     const fallbackResults = await Promise.allSettled([
-      fetchFromEndpoint(OBF_BASE_URL, 'open_beauty_facts', barcode, fetchFn, fallbackTimeoutMs),
-      fetchFromEndpoint(OPF_BASE_URL, 'open_products_facts', barcode, fetchFn, fallbackTimeoutMs),
+      fetchFromEndpoint(OBF_BASE_URL, 'open_beauty_facts', barcode, fetchFn, fallbackTimeoutMs, enrichTimeoutMs),
+      fetchFromEndpoint(OPF_BASE_URL, 'open_products_facts', barcode, fetchFn, fallbackTimeoutMs, enrichTimeoutMs),
     ]);
 
     for (const res of fallbackResults) {

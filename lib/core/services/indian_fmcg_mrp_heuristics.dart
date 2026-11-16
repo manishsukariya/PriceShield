@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Intelligent Legal Metrology pack-size to printed MRP heuristics for Indian FMCG staples.
 /// Ensures that when an iconic consumer product is identified (e.g. Appy Fizz, Frooti,
 /// Sting, Bisleri, Maggi, Parle-G), its exact nationally standard printed MRP is resolved

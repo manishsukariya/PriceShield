@@ -23,8 +23,8 @@ const BATCH_SIZE = 2500;
 
 function cleanBarcode(code) {
   if (!code) return '';
-  const cleaned = String(code).trim().replace(/[^0-9]/g, '');
-  if (cleaned.length >= 8 && cleaned.length <= 14) {
+  const cleaned = String(code).trim();
+  if (cleaned.length >= 5 && cleaned.length <= 32) {
     return cleaned;
   }
   return '';
@@ -76,8 +76,8 @@ async function insertBatch(items) {
  * Live Harvester from JioMart REST API
  * Extracts exact physical packet MRP (price.marked.min) and item barcode / SKU
  */
-export async function harvestFromJioMart({ maxPages = 50, department = 'groceries' } = {}) {
-  console.log(`🛒 Starting JioMart Live Harvester for department: "${department}" (Max Pages: ${maxPages})...`);
+export async function harvestFromJioMart({ maxPages = 50, departments = ['groceries', 'home-and-kitchen', 'beauty', 'electronics'] } = {}) {
+  console.log(`🛒 Starting JioMart Live Harvester for departments: ${departments.join(', ')} (Max Pages per dept: ${maxPages})...`);
   const startTime = Date.now();
   const loc = JSON.stringify({ pincode: '400001', country: 'India', city: 'Mumbai' });
 
@@ -93,47 +93,47 @@ export async function harvestFromJioMart({ maxPages = 50, department = 'grocerie
   let totalSaved = 0;
   let buffer = [];
 
-  for (let page = 1; page <= maxPages; page++) {
-    try {
-      const url = `https://www.jiomart.com/service/application/catalog/v1.0/products?department=${department}&page_no=${page}&page_size=50`;
-      const response = await fetch(url, { headers });
-      if (!response.ok) {
-        console.warn(`[Page ${page}] HTTP ${response.status}. Skipping.`);
-        continue;
-      }
-
-      const data = await response.json();
-      const items = data.items || [];
-      if (items.length === 0) {
-        console.log(`[Page ${page}] No more items found. Ending.`);
-        break;
-      }
-
-      for (const item of items) {
-        totalScanned++;
-        // Barcode / SKU
-        const barcode = cleanBarcode(item.sku_code || item.item_code || item.uid);
-        // EXACT PRINTED PACKET MRP:
-        const markedMrp = item.price?.marked?.min ?? item.price?.marked?.max;
-        const mrp = cleanMrp(markedMrp);
-        const name = (item.name || '').trim();
-
-        if (barcode && mrp > 0 && name) {
-          buffer.push({ barcode, name, mrp });
+  for (const department of departments) {
+    console.log(`\n📂 Scanning department: [${department}]...`);
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const url = `https://www.jiomart.com/service/application/catalog/v1.0/products?department=${department}&page_no=${page}&page_size=50`;
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          console.warn(`[${department} Page ${page}] HTTP ${response.status}. Skipping.`);
+          continue;
         }
-      }
 
-      if (buffer.length >= 200 || page === maxPages) {
-        const count = await insertBatch(buffer);
-        totalSaved += count;
-        buffer = [];
-        console.log(`[Progress] Page ${page}/${maxPages} | Scanned: ${totalScanned} | Saved to DB: ${totalSaved}`);
-      }
+        const data = await response.json();
+        const items = data.items || [];
+        if (items.length === 0) {
+          console.log(`[${department} Page ${page}] No more items found. Moving to next department.`);
+          break;
+        }
 
-      // Polite delay between API calls
-      await new Promise((r) => setTimeout(r, 100));
-    } catch (err) {
-      console.error(`[Page ${page}] Error:`, err.message);
+        for (const item of items) {
+          totalScanned++;
+          const barcode = cleanBarcode(item.sku_code || item.item_code || item.uid);
+          const markedMrp = item.price?.marked?.min ?? item.price?.marked?.max;
+          const mrp = cleanMrp(markedMrp);
+          const name = (item.name || '').trim();
+
+          if (barcode && mrp > 0 && name) {
+            buffer.push({ barcode, name, mrp });
+          }
+        }
+
+        if (buffer.length >= 250 || (page === maxPages && buffer.length > 0)) {
+          const count = await insertBatch(buffer);
+          totalSaved += count;
+          buffer = [];
+          console.log(`[Progress ${department}] Page ${page}/${maxPages} | Total Scanned: ${totalScanned} | Saved to DB: ${totalSaved}`);
+        }
+
+        await new Promise((r) => setTimeout(r, 60));
+      } catch (err) {
+        console.error(`[${department} Page ${page}] Error:`, err.message);
+      }
     }
   }
 

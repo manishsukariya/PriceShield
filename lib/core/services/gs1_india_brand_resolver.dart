@@ -36,11 +36,17 @@ class Gs1IndiaBrandResolver {
       category: 'Dairy & Milk Pouch',
       suggestedMrps: [12, 24, 26, 48, 52],
     ),
-    '8901719': Gs1BrandInfo(
+    '8901648': Gs1BrandInfo(
       brandName: 'Mother Dairy',
       company: 'Mother Dairy Fruit & Vegetable Pvt Ltd',
       category: 'Dairy & Beverages',
       suggestedMrps: [15, 20, 27, 33, 54, 66],
+    ),
+    '8901719': Gs1BrandInfo(
+      brandName: 'Parle (Parle-G / Frooti / Appy Fizz)',
+      company: 'Parle Products & Parle Agro',
+      category: 'Biscuits & Beverages',
+      suggestedMrps: [5, 10, 15, 20, 38, 40, 70, 110],
     ),
     '8908005': Gs1BrandInfo(
       brandName: 'Saras Dairy',
@@ -156,17 +162,23 @@ class Gs1IndiaBrandResolver {
       category: 'Biscuits & Beverages (Frooti/Appy)',
       suggestedMrps: [5, 10, 20, 25, 35],
     ),
-    '8901725': Gs1BrandInfo(
-      brandName: 'Nestlé (Maggi / KitKat)',
+    '8901058': Gs1BrandInfo(
+      brandName: 'Nestlé (Maggi / KitKat / Munch)',
       company: 'Nestlé India Ltd',
       category: 'Instant Noodles & Confectionery',
-      suggestedMrps: [14, 20, 25, 30, 40, 60],
+      suggestedMrps: [5, 10, 14, 18, 20, 25, 30, 56],
+    ),
+    '8901725': Gs1BrandInfo(
+      brandName: 'ITC (Sunfeast / Bingo! / YiPPee!)',
+      company: 'ITC Limited',
+      category: 'Biscuits, Snacks & Noodles',
+      suggestedMrps: [5, 10, 12, 14, 20, 25, 40, 50],
     ),
     '8902579': Gs1BrandInfo(
-      brandName: 'ITC (Sunfeast / Bingo!)',
-      company: 'ITC Limited',
-      category: 'Biscuits & Snacks',
-      suggestedMrps: [5, 10, 20, 25, 30],
+      brandName: 'Parle Agro (Appy Fizz / Frooti / Bailley)',
+      company: 'Parle Agro Pvt Ltd',
+      category: 'Beverages & Soft Drinks',
+      suggestedMrps: [10, 15, 20, 40, 60, 70, 110],
     ),
     '8901030': Gs1BrandInfo(
       brandName: 'Hindustan Unilever (HUL)',
@@ -174,7 +186,7 @@ class Gs1IndiaBrandResolver {
       category: 'FMCG & Tea/Beverages',
       suggestedMrps: [10, 20, 30, 50, 75],
     ),
-    '8901058': Gs1BrandInfo(
+    '8901088': Gs1BrandInfo(
       brandName: 'Marico (Saffola / Parachute)',
       company: 'Marico Limited',
       category: 'Edible Oils & Foods',

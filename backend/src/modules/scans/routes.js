@@ -28,7 +28,20 @@ export function scanRoutes({ authenticate, prisma }) {
       let productId = null;
       try {
         const matchedProduct = await prisma.product.findUnique({ where: { barcode: data.barcode } });
-        if (matchedProduct) productId = matchedProduct.id;
+        if (matchedProduct) {
+          productId = matchedProduct.id;
+          if (mrp > 0 && (!matchedProduct.mrp || Number(matchedProduct.mrp) <= 0)) {
+            await prisma.product.update({
+              where: { id: matchedProduct.id },
+              data: { mrp, name: data.productName || matchedProduct.name },
+            }).catch(() => {});
+          }
+        } else if (mrp > 0) {
+          const created = await prisma.product.create({
+            data: { barcode: data.barcode, name: data.productName, mrp },
+          }).catch(() => null);
+          if (created) productId = created.id;
+        }
       } catch {
         // Safe fallback
       }

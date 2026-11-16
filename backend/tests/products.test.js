@@ -6,6 +6,7 @@ import {
   extractProductMrp,
   formatProductName,
 } from '../src/modules/products/open-food-facts.js';
+import { inferFmcgMrp } from '../src/modules/products/indian-fmcg-heuristics.js';
 
 function createMockPrisma() {
   const users = new Map();
@@ -154,6 +155,18 @@ describe('Open Food Facts formatting and extraction', () => {
 
     // Unit sale price alone must never be mistaken for MRP
     expect(extractMrpFromText('Rs. 2 per g\nNET WT 50g')).toBe(0);
+  });
+
+  it('infers standard Indian FMCG Legal Metrology MRP from staple brand and pack size', () => {
+    expect(inferFmcgMrp({ name: 'Appy Fizz Sparkling Apple Juice Drink', quantity: '160ml' })).toBe(10.0);
+    expect(inferFmcgMrp({ name: 'Appy Fizz', quantity: '125 ml' })).toBe(10.0);
+    expect(inferFmcgMrp({ name: 'Appy Fizz Sparkling Drink', quantity: '250ml' })).toBe(20.0);
+    expect(inferFmcgMrp({ name: 'Appy Fizz', quantity: '600ml' })).toBe(40.0);
+    expect(inferFmcgMrp({ name: 'Frooti Mango Drink', quantity: '160ml' })).toBe(10.0);
+    expect(inferFmcgMrp({ name: 'Sting Energy Drink Gold Rush', quantity: '250ml' })).toBe(20.0);
+    expect(inferFmcgMrp({ name: 'Bisleri Packaged Drinking Water', quantity: '1L' })).toBe(20.0);
+    expect(inferFmcgMrp({ name: 'Maggi 2-Minute Noodles', quantity: '70g' })).toBe(14.0);
+    expect(inferFmcgMrp({ name: 'Parle-G Gluco Biscuits', quantity: '65g' })).toBe(5.0);
   });
 });
 

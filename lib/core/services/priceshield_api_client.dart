@@ -109,6 +109,23 @@ class PriceShieldApiClient {
   Future<Map<String, dynamic>> getProduct(String barcode) async {
     final clean = barcode.trim();
     final cached = getCachedProduct(clean);
+
+    if (isConfigured) {
+      try {
+        final result = await _requestMap(
+          'GET',
+          '/products/${Uri.encodeComponent(clean)}',
+          authenticated: false,
+          timeout: cached != null ? const Duration(seconds: 4) : null,
+        );
+        cacheProduct(clean, result);
+        return result;
+      } catch (e) {
+        if (cached != null) return cached;
+        rethrow;
+      }
+    }
+
     if (cached != null) return cached;
 
     final result = await _requestMap(
@@ -295,12 +312,14 @@ class PriceShieldApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
     final data = await _request(
       method,
       path,
       body: body,
       authenticated: authenticated,
+      timeout: timeout,
     );
     if (data is! Map<String, dynamic>) {
       throw const PriceShieldApiException(
@@ -342,12 +361,14 @@ class PriceShieldApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
     final envelope = await _requestEnvelope(
       method,
       path,
       body: body,
       authenticated: authenticated,
+      timeout: timeout,
     );
     return envelope['data'];
   }
@@ -357,6 +378,7 @@ class PriceShieldApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
     if (!isConfigured) {
       throw const PriceShieldApiException(
@@ -392,7 +414,8 @@ class PriceShieldApiClient {
     try {
       final request = http.Request(method, uri)..headers.addAll(headers);
       if (body != null) request.body = jsonEncode(body);
-      final streamed = await _client.send(request).timeout(_timeout);
+      final effectiveTimeout = timeout ?? _timeout;
+      final streamed = await _client.send(request).timeout(effectiveTimeout);
       final response = await http.Response.fromStream(streamed);
       final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {

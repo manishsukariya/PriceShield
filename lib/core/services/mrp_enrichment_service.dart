@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'indian_fmcg_mrp_heuristics.dart';
 
 @immutable
 class MrpResolution {
@@ -347,6 +348,16 @@ class MrpEnrichmentService {
         return MrpResolution(
           mrp: fromName,
           source: (source != null && source.isNotEmpty) ? source : 'catalog_name',
+        );
+      }
+      final inferred = IndianFmcgMrpHeuristics.inferMrp(
+        productName: productName,
+        barcode: cleanBarcode,
+      );
+      if (inferred != null && inferred > 0) {
+        return MrpResolution(
+          mrp: inferred,
+          source: 'indian_fmcg_standard',
         );
       }
     }

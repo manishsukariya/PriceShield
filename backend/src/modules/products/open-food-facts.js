@@ -3,6 +3,8 @@
  * APIs (Beauty/Products), Open Prices INR feeds, and OFF image Cloud Vision OCR JSONs.
  */
 
+import { inferFmcgMrp } from './indian-fmcg-heuristics.js';
+
 const OFF_BASE_URL = 'https://world.openfoodfacts.org/api/v2/product';
 const OBF_BASE_URL = 'https://world.openbeautyfacts.org/api/v2/product';
 const OPF_BASE_URL = 'https://world.openproductsfacts.org/api/v2/product';
@@ -415,7 +417,7 @@ async function fetchMrpFromOffImageOcr(product, barcode, source, fetchFn, timeou
 
 function parseProductPayload(product, barcode, source) {
   const name = formatProductName(product, barcode);
-  const mrp = extractProductMrp(product);
+  let mrp = extractProductMrp(product);
   const brand =
     (
       product.brands ||
@@ -442,6 +444,20 @@ function parseProductPayload(product, barcode, source) {
       .trim() || null;
   const quantity = (product.quantity || '').trim() || null;
 
+  let mrpSource = mrp > 0 ? source : null;
+  if (mrp <= 0) {
+    const inferred = inferFmcgMrp({
+      name,
+      brand: brand || '',
+      quantity: quantity || '',
+      barcode,
+    });
+    if (inferred > 0) {
+      mrp = inferred;
+      mrpSource = 'indian_fmcg_standard';
+    }
+  }
+
   return {
     barcode,
     name,
@@ -451,7 +467,7 @@ function parseProductPayload(product, barcode, source) {
     category,
     quantity,
     source,
-    mrpSource: mrp > 0 ? source : null,
+    mrpSource,
   };
 }
 

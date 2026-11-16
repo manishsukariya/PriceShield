@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
+import 'package:priceshield/core/services/indian_fmcg_mrp_heuristics.dart';
 import 'package:priceshield/core/services/mrp_enrichment_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
@@ -170,7 +171,26 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             'isReferenceEstimate': true,
           });
         } else {
-          fetchedMissingMrpProduct = product;
+          final inferred = IndianFmcgMrpHeuristics.inferMrp(
+            productName: _nameController.text,
+            quantityText: _quantityText,
+            barcode: widget.barcode,
+          );
+          if (inferred != null && inferred > 0) {
+            _mrpController.text = MrpEnrichmentService.formatMrp(inferred);
+            _catalogBaseMrp = inferred;
+            _productSource = 'indian_fmcg_standard';
+            _isReferenceEstimate = true;
+            _api.cacheProduct(widget.barcode, {
+              ...product,
+              'name': _nameController.text.trim(),
+              'mrp': inferred,
+              'source': 'indian_fmcg_standard',
+              'isReferenceEstimate': true,
+            });
+          } else {
+            fetchedMissingMrpProduct = product;
+          }
         }
       }
 
@@ -188,6 +208,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         // Product not found in local catalog or OFF fallback.
         // Ready for instant on-device OCR / manual input without noisy error banner.
         _loadError = null;
+        if (_mrpController.text.trim().isEmpty) {
+          final inferred = IndianFmcgMrpHeuristics.inferMrp(
+            productName: _nameController.text,
+            quantityText: _quantityText,
+            barcode: widget.barcode,
+          );
+          if (inferred != null && inferred > 0) {
+            _mrpController.text = MrpEnrichmentService.formatMrp(inferred);
+            _catalogBaseMrp = inferred;
+            _productSource = 'indian_fmcg_standard';
+            _isReferenceEstimate = true;
+          }
+        }
       } else {
         _loadError = e.message;
       }
@@ -197,6 +230,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       if (_detectedBrandInfo != null && _nameController.text.trim().isEmpty) {
         _nameController.text =
             '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
+      }
+      if (_mrpController.text.trim().isEmpty) {
+        final inferred = IndianFmcgMrpHeuristics.inferMrp(
+          productName: _nameController.text,
+          quantityText: _quantityText,
+          barcode: widget.barcode,
+        );
+        if (inferred != null && inferred > 0) {
+          _mrpController.text = MrpEnrichmentService.formatMrp(inferred);
+          _catalogBaseMrp = inferred;
+          _productSource = 'indian_fmcg_standard';
+          _isReferenceEstimate = true;
+        }
       }
       _loadError = 'Could not reach server. You can enter details manually.';
     } finally {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:priceshield/core/services/indian_fmcg_mrp_heuristics.dart';
 import 'package:priceshield/core/services/mrp_enrichment_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/scanner/presentation/screens/product_details_screen.dart';
@@ -75,6 +76,72 @@ void main() {
       expect(
         MrpEnrichmentService.extractMrpFromOcr('Rs. 0.25 per g'),
         isNull,
+      );
+    });
+
+    test('IndianFmcgMrpHeuristics infers exact Legal Metrology MRP for staples', () {
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Appy Fizz Sparkling Apple Juice Drink',
+          quantityText: '160ml',
+        ),
+        10.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Appy Fizz',
+          quantityText: '125ml',
+        ),
+        10.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Appy Fizz',
+          quantityText: '250ml',
+        ),
+        20.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Frooti Fresh N Juicy',
+          quantityText: '160ml',
+        ),
+        10.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Sting Energy Drink',
+          quantityText: '250ml',
+        ),
+        20.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Bisleri Packaged Drinking Water',
+          quantityText: '1L',
+        ),
+        20.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Maggi 2-Minute Noodles',
+          quantityText: '70g',
+        ),
+        14.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Parle-G Gluco Biscuits',
+          quantityText: '65g',
+        ),
+        5.0,
+      );
+      expect(
+        IndianFmcgMrpHeuristics.inferMrp(
+          productName: 'Amul Taaza Milk',
+          quantityText: '500ml',
+        ),
+        27.0,
       );
     });
   });

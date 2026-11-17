@@ -350,6 +350,22 @@ class MrpEnrichmentService {
           source: (source != null && source.isNotEmpty) ? source : 'catalog_name',
         );
       }
+    }
+
+    final openFactsFuture = _fetchFromOpenFactsWithOcr(
+      cleanBarcode,
+      preferredSource: source,
+    );
+    final openPricesResult = await _fetchFromOpenPricesInr(cleanBarcode);
+    if (openPricesResult != null) {
+      return openPricesResult;
+    }
+    final openFactsResult = await openFactsFuture;
+    if (openFactsResult != null) {
+      return openFactsResult;
+    }
+
+    if (productName != null && productName.trim().isNotEmpty) {
       final inferred = IndianFmcgMrpHeuristics.inferMrp(
         productName: productName,
         barcode: cleanBarcode,
@@ -362,15 +378,7 @@ class MrpEnrichmentService {
       }
     }
 
-    final openFactsFuture = _fetchFromOpenFactsWithOcr(
-      cleanBarcode,
-      preferredSource: source,
-    );
-    final openPricesResult = await _fetchFromOpenPricesInr(cleanBarcode);
-    if (openPricesResult != null) {
-      return openPricesResult;
-    }
-    return await openFactsFuture;
+    return null;
   }
 
   Future<MrpResolution?> _fetchFromOpenPricesInr(String barcode) async {

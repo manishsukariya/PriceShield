@@ -11,6 +11,8 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen> {
+  static final List<Map<String, dynamic>> _cachedItems = [];
+  static String? _cachedCursor;
   final List<Map<String, dynamic>> _items = [];
   String? _nextCursor;
   String? _error;
@@ -21,21 +23,34 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitial();
+    if (_cachedItems.isNotEmpty) {
+      _items.addAll(_cachedItems);
+      _nextCursor = _cachedCursor;
+      _loading = false;
+    }
+    _loadInitial(isBackground: _cachedItems.isNotEmpty);
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({bool isBackground = false}) async {
     if (!AuthSession.isSignedIn) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!isBackground) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
-      final page = await priceShieldApi.listComplaintsPage(limit: 20);
+      final page = await priceShieldApi
+          .listComplaintsPage(limit: 20)
+          .timeout(const Duration(seconds: 5));
       if (!mounted) return;
+      _cachedItems
+        ..clear()
+        ..addAll(page.items);
+      _cachedCursor = page.nextCursor;
       setState(() {
         _items
           ..clear()
@@ -46,16 +61,20 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     } on PriceShieldApiException catch (error) {
       if (error.isUnauthorized) await AuthSession.clear();
       if (!mounted) return;
-      setState(() {
-        _error = error.message;
-        _loading = false;
-      });
+      if (_items.isEmpty) {
+        setState(() {
+          _error = error.message;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _error = 'We could not load your complaints.';
-        _loading = false;
-      });
+      if (_items.isEmpty) {
+        setState(() {
+          _error = 'We could not load your complaints.';
+          _loading = false;
+        });
+      }
     }
   }
 

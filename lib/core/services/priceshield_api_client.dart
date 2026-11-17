@@ -106,6 +106,56 @@ class PriceShieldApiClient {
     _initProductCache();
   }
 
+  Future<Map<String, dynamic>?> _fetchDirectFromOpenFacts(String barcode) async {
+    try {
+      final uri = Uri.parse(
+        'https://world.openfoodfacts.org/api/v2/product/${Uri.encodeComponent(barcode)}.json',
+      );
+      final res = await _client.get(
+        uri,
+        headers: const {
+          'User-Agent': 'PriceShield - Android - Version 1.0 (support@priceshield.app)',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(milliseconds: 2500));
+      if (res.statusCode != 200 || res.body.isEmpty) return null;
+      final data = jsonDecode(res.body);
+      if (data is! Map || data['status'] != 1 || data['product'] is! Map) return null;
+      final p = data['product'] as Map;
+      final rawName = p['product_name_en']?.toString() ??
+          p['product_name']?.toString() ??
+          p['generic_name']?.toString() ??
+          '';
+      final brand = (p['brands']?.toString() ?? p['brand_owner']?.toString() ?? '')
+          .split(',')
+          .first
+          .trim();
+      final quantity = p['quantity']?.toString();
+      var name = rawName.trim();
+      if (brand.isNotEmpty && !name.toLowerCase().contains(brand.toLowerCase())) {
+        name = '$brand $name'.trim();
+      }
+      if (name.isEmpty) name = 'Product $barcode';
+      if (quantity != null &&
+          quantity.isNotEmpty &&
+          !name.toLowerCase().contains(quantity.toLowerCase())) {
+        name = '$name ($quantity)';
+      }
+      return {
+        'barcode': barcode,
+        'name': name,
+        'mrp': 0,
+        'quantity': quantity,
+        'brand': brand.isNotEmpty ? brand : null,
+        'imageUrl': p['image_url']?.toString() ?? p['image_front_url']?.toString(),
+        'source': 'open_food_facts',
+        'isReferenceEstimate': true,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> getProduct(String barcode) async {
     final clean = barcode.trim();
     final cached = getCachedProduct(clean);
@@ -116,22 +166,34 @@ class PriceShieldApiClient {
           'GET',
           '/products/${Uri.encodeComponent(clean)}',
           authenticated: false,
-          timeout: cached != null ? const Duration(seconds: 4) : null,
+          timeout: const Duration(milliseconds: 3200),
         );
         cacheProduct(clean, result);
         return result;
       } catch (e) {
         if (cached != null) return cached;
+        final direct = await _fetchDirectFromOpenFacts(clean);
+        if (direct != null) {
+          cacheProduct(clean, direct);
+          return direct;
+        }
         rethrow;
       }
     }
 
     if (cached != null) return cached;
 
+    final direct = await _fetchDirectFromOpenFacts(clean);
+    if (direct != null) {
+      cacheProduct(clean, direct);
+      return direct;
+    }
+
     final result = await _requestMap(
       'GET',
       '/products/${Uri.encodeComponent(clean)}',
       authenticated: false,
+      timeout: const Duration(milliseconds: 3500),
     );
     cacheProduct(clean, result);
     return result;

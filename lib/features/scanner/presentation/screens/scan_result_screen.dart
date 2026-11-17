@@ -72,7 +72,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           Center(
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              constraints: const BoxConstraints(maxWidth: 340),
               decoration: BoxDecoration(
                 color: PriceShieldColors.mint,
                 borderRadius: BorderRadius.circular(20),
@@ -81,14 +82,18 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.shield_rounded, color: PriceShieldColors.primary, size: 18),
+                  Icon(Icons.shield_rounded, color: PriceShieldColors.primary, size: 16),
                   SizedBox(width: 6),
-                  Text(
-                    '🛡️ Consumer Advisory • Verify packet MRP & save receipt',
-                    style: TextStyle(
-                      color: PriceShieldColors.navy,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                  Flexible(
+                    child: Text(
+                      'Consumer Advisory • Verify packet MRP & save receipt',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: PriceShieldColors.navy,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                 ],

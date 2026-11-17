@@ -188,9 +188,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               'source': 'indian_fmcg_standard',
               'isReferenceEstimate': true,
             });
-          } else {
-            fetchedMissingMrpProduct = product;
           }
+          fetchedMissingMrpProduct = product;
         }
       }
 

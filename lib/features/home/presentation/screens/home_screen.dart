@@ -27,6 +27,7 @@ class _HomeDashboardData {
 class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState() => _HomeScreenState(); }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static _HomeDashboardData? _cachedDashboard;
   late Future<_HomeDashboardData> _content = _loadContent();
 
   Future<_HomeDashboardData> _loadContent() async {
@@ -38,22 +39,26 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         priceShieldApi.listScansPage(limit: 20),
         priceShieldApi.listComplaintsPage(limit: 20),
-      ]);
+      ]).timeout(const Duration(seconds: 5));
       final scansPage = results[0];
       final complaintsPage = results[1];
-      return _HomeDashboardData(
+      final data = _HomeDashboardData(
         scans: scansPage.items,
         complaints: complaintsPage.items,
         hasMoreScans: scansPage.hasMore,
         hasMoreComplaints: complaintsPage.hasMore,
       );
+      _cachedDashboard = data;
+      return data;
     } on PriceShieldApiException catch (error) {
+      if (_cachedDashboard != null) return _cachedDashboard!;
       return _HomeDashboardData(
         scans: const [],
         complaints: const [],
         syncError: error.message,
       );
     } catch (_) {
+      if (_cachedDashboard != null) return _cachedDashboard!;
       return const _HomeDashboardData(
         scans: [],
         complaints: [],
@@ -98,8 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: FutureBuilder<_HomeDashboardData>(
           future: _content,
           builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) return const _DashboardSkeleton();
-            final data = snapshot.data ?? const _HomeDashboardData(scans: [], complaints: []);
+            if (snapshot.connectionState != ConnectionState.done && _cachedDashboard == null) {
+              return const _DashboardSkeleton();
+            }
+            final data = snapshot.data ?? _cachedDashboard ?? const _HomeDashboardData(scans: [], complaints: []);
             final scans = data.scans;
             final complaints = data.complaints;
 

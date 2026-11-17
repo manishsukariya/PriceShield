@@ -365,9 +365,11 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                 children: [
                   Icon(Icons.shield_outlined, color: Color(0xff2BAE9A), size: 28),
                   SizedBox(width: 10),
-                  Text(
-                    'Sign In Required to File',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'Sign In Required to File',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),

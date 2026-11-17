@@ -62,5 +62,24 @@ class WelcomeScreen extends StatelessWidget {
 class _WelcomePoint extends StatelessWidget {
   const _WelcomePoint({required this.icon, required this.text});
   final IconData icon; final String text;
-  @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: PriceShieldColors.mint, borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: PriceShieldColors.primary, size: 20)), const SizedBox(width: 12), Text(text, style: const TextStyle(fontWeight: FontWeight.w600))]));
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: PriceShieldColors.mint,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: PriceShieldColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
 }

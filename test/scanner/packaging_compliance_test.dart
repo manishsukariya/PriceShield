@@ -279,7 +279,7 @@ void main() {
       await tester.pump();
 
       // Verify Consumer Advisory Chip
-      expect(find.text('🛡️ Consumer Advisory • Verify packet MRP & save receipt'), findsOneWidget);
+      expect(find.textContaining('Consumer Advisory'), findsOneWidget);
 
       // Verify Overcharge details
       expect(find.text('Overcharge detected'), findsOneWidget);
@@ -324,7 +324,7 @@ void main() {
       expect(find.text(compliance.legalAdvice), findsOneWidget);
 
       // Consumer advisory badge should also be displayed
-      expect(find.text('🛡️ Consumer Advisory • Verify packet MRP & save receipt'), findsOneWidget);
+      expect(find.textContaining('Consumer Advisory'), findsOneWidget);
 
       // Premature Escalation buttons must remain locked when no overcharge or complaint exists
       expect(find.text('Copy Legal Notice (WhatsApp/Email)'), findsNothing);

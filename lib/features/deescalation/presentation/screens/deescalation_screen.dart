@@ -272,14 +272,17 @@ class _DeescalationScreenState extends State<DeescalationScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Authoritative Law Card',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-            color: PriceShieldColors.navy,
+        const Expanded(
+          child: Text(
+            'Authoritative Law Card',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: PriceShieldColors.navy,
+            ),
           ),
         ),
+        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(

@@ -17,24 +17,59 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static int? _cachedTotal;
+  static int? _cachedResolved;
+  static String? _cachedPhotoUrl;
+
   bool _loading = true, _uploading = false, _deleting = false;
   int _total = 0, _resolved = 0;
   String? _photoUrl;
 
-  @override void initState() { super.initState(); _refresh(); }
+  @override
+  void initState() {
+    super.initState();
+    if (_cachedTotal != null) {
+      _total = _cachedTotal!;
+      _resolved = _cachedResolved ?? 0;
+      _photoUrl = _cachedPhotoUrl;
+      _loading = false;
+    }
+    _refresh();
+  }
+
   Future<void> _refresh() async {
     if (AuthSession.currentUser.value == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
     try {
-      final results = await Future.wait([priceShieldApi.getProfile(), priceShieldApi.listComplaints(limit: 100)]);
+      final results = await Future.wait([
+        priceShieldApi.getProfile(),
+        priceShieldApi.listComplaints(limit: 100),
+      ]).timeout(const Duration(seconds: 5));
       final profile = results[0] as Map<String, dynamic>;
       final complaints = results[1] as List<Map<String, dynamic>>;
       await AuthSession.updateUser(profile);
-      if (mounted) setState(() { _photoUrl = profile['photoUrl']?.toString(); _total = complaints.length; _resolved = complaints.where((i) => i['status']?.toString().toUpperCase() == 'RESOLVED').length; _loading = false; });
+      final total = complaints.length;
+      final resolved = complaints
+          .where((i) => i['status']?.toString().toUpperCase() == 'RESOLVED')
+          .length;
+      final photo = profile['photoUrl']?.toString();
+      _cachedTotal = total;
+      _cachedResolved = resolved;
+      _cachedPhotoUrl = photo;
+      if (mounted) {
+        setState(() {
+          _photoUrl = photo;
+          _total = total;
+          _resolved = resolved;
+          _loading = false;
+        });
+      }
     } on PriceShieldApiException catch (error) {
       if (error.isUnauthorized) await AuthSession.clear();
+      if (mounted) setState(() => _loading = false);
+    } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }

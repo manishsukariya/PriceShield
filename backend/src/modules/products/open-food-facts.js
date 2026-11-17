@@ -444,19 +444,7 @@ function parseProductPayload(product, barcode, source) {
       .trim() || null;
   const quantity = (product.quantity || '').trim() || null;
 
-  let mrpSource = mrp > 0 ? source : null;
-  if (mrp <= 0) {
-    const inferred = inferFmcgMrp({
-      name,
-      brand: brand || '',
-      quantity: quantity || '',
-      barcode,
-    });
-    if (inferred > 0) {
-      mrp = inferred;
-      mrpSource = 'indian_fmcg_standard';
-    }
-  }
+  const mrpSource = mrp > 0 ? source : null;
 
   return {
     barcode,
@@ -521,6 +509,19 @@ async function fetchFromEndpoint(
         if (ocrMrp > 0) {
           parsed.mrp = ocrMrp;
           parsed.mrpSource = `${source}_ocr`;
+        }
+      }
+
+      if (parsed.mrp <= 0) {
+        const inferred = inferFmcgMrp({
+          name: parsed.name,
+          brand: parsed.brand || '',
+          quantity: parsed.quantity || '',
+          barcode,
+        });
+        if (inferred > 0) {
+          parsed.mrp = inferred;
+          parsed.mrpSource = 'indian_fmcg_standard';
         }
       }
     }

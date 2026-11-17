@@ -1,10 +1,87 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import { requireModerationKey } from '../../middleware/admin-auth.js';
 import { AppError } from '../../middleware/errors.js';
+import { validate } from '../../middleware/validate.js';
+import { pageResult, parseCursor, parseLimit } from '../../utils/query.js';
 import { fetchFromOpenFoodFacts } from './open-food-facts.js';
 
-export function productRoutes({ authenticate, authenticateOptional, prisma, fetchFn }) {
+const money = z.coerce.number().positive().max(99999999.99);
+
+const adminProductSchema = z.object({
+  barcode: z.string().trim().min(1).max(128),
+  name: z.string().trim().min(1).max(255),
+  mrp: money,
+});
+
+const adminUpdateProductSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  mrp: money.optional(),
+}).refine((v) => v.name !== undefined || v.mrp !== undefined, {
+  message: 'Provide name or mrp to update.',
+});
+
+export function productRoutes({ authenticate, authenticateOptional, prisma, fetchFn, env }) {
   const router = Router();
   const authMiddleware = authenticateOptional ?? authenticate;
+  const adminAuth = requireModerationKey(env);
+
+  // Admin Catalog Management Endpoints
+  router.get('/admin/products', adminAuth, async (request, response, next) => {
+    try {
+      const search = typeof request.query.search === 'string' ? request.query.search.trim().toLowerCase() : '';
+      const limit = parseLimit(request.query.limit);
+      const cursor = parseCursor(request.query.cursor);
+
+      const items = await prisma.product.findMany({
+        where: search
+          ? {
+              OR: [
+                { barcode: { contains: search } },
+                { name: { contains: search } },
+              ],
+            }
+          : {},
+        orderBy: { updatedAt: 'desc' },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+
+      response.json(pageResult(items, limit));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/admin/products', adminAuth, validate(adminProductSchema), async (request, response, next) => {
+    try {
+      const { barcode, name, mrp } = request.body;
+      const product = await prisma.product.upsert({
+        where: { barcode },
+        update: { name, mrp },
+        create: { barcode, name, mrp },
+      });
+      response.status(201).json({ data: product });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/admin/products/:id', adminAuth, validate(adminUpdateProductSchema), async (request, response, next) => {
+    try {
+      const { mrp, name } = request.body;
+      const updated = await prisma.product.update({
+        where: { id: request.params.id },
+        data: {
+          ...(mrp !== undefined ? { mrp } : {}),
+          ...(name !== undefined ? { name } : {}),
+        },
+      });
+      response.json({ data: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/products/:barcode', authMiddleware, async (request, response, next) => {
     try {

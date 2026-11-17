@@ -66,8 +66,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         displayName: widget.displayName,
         mobile: widget.mobile,
       );
-      if (mounted)
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+      }
     } on PriceShieldAuthException catch (error) {
       _show(error.message);
     } on PriceShieldApiException catch (_) {

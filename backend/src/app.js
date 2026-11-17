@@ -20,15 +20,25 @@ export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, 
   app.set('trust proxy', 1);
   app.use(pinoHttp({ redact: ['req.headers.authorization'] }));
   app.use(helmet());
-  const allowedOrigins = [env.CORS_ALLOWED_ORIGIN, ...(env.CORS_ALLOWED_ORIGINS?.split(',') ?? [])]
+  const configuredOrigins = [env.CORS_ALLOWED_ORIGIN, ...(env.CORS_ALLOWED_ORIGINS?.split(',') ?? [])]
     .map((origin) => origin?.trim())
     .filter(Boolean);
-  app.use(cors(allowedOrigins.length ? {
+  const isDev = env.NODE_ENV !== 'production';
+  app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin) return callback(null, true);
+      if (configuredOrigins.includes(origin) || configuredOrigins.includes('*')) {
+        return callback(null, true);
+      }
+      if (isDev || configuredOrigins.length === 0) {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+          return callback(null, true);
+        }
+      }
       return callback(new Error('CORS origin is not allowed.'));
     },
-  } : { origin: false }));
+    credentials: true,
+  }));
   app.use(express.json({ limit: '1mb' }));
   // Public process health check. It intentionally avoids database access so
   // orchestration and local network checks can distinguish an alive API from
@@ -38,7 +48,7 @@ export function createApp({ env = getEnv(), prismaClient = prisma, verifyToken, 
     windowMs: 60 * 1000,
     max: 120,
     skip: () => env.NODE_ENV === 'test',
-  }), apiRoutes({ prisma: prismaClient, authenticate, authenticateOptional, env, fetchFn, complaintRateLimit }));
+  }), apiRoutes({ prisma: prismaClient, authenticate, authenticateOptional, env, fetchFn, complaintRateLimit, verifyToken: tokenVerifier }));
   app.use(notFound);
   app.use(errorHandler);
   return app;

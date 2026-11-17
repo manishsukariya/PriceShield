@@ -862,7 +862,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Switch.adaptive(
                         value: _isStickerFlagged,
                         onChanged: (val) => setState(() => _isStickerFlagged = val),
-                        activeColor: const Color(0xffDC2626),
+                        activeTrackColor: const Color(0xffDC2626),
                       ),
                     ],
                   ),

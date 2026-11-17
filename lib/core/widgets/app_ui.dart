@@ -44,7 +44,7 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
         child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
       );
 }

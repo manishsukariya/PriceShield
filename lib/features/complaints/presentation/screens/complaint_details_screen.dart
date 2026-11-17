@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,9 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
+import 'package:priceshield/core/services/realtime_complaint_service.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/services/escalation_pack_service.dart';
+import 'package:priceshield/features/profile/presentation/screens/plans_screen.dart';
 
 class ComplaintDetailsScreen extends StatefulWidget {
   const ComplaintDetailsScreen({
@@ -25,12 +28,97 @@ class ComplaintDetailsScreen extends StatefulWidget {
 
 class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
   PriceShieldApiClient get _api => widget.apiClient ?? priceShieldApi;
-  late Future<Map<String, dynamic>> _complaint =
-      _api.getComplaint(widget.complaintId);
+  late Future<Map<String, dynamic>> _complaint;
+  Map<String, dynamic>? _liveComplaint;
   bool _uploadingEvidence = false;
+  bool _isBoosting = false;
+  StreamSubscription<Map<String, dynamic>>? _realtimeSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _complaint = _api.getComplaint(widget.complaintId);
+    RealtimeComplaintService.instance.start();
+    _realtimeSub = RealtimeComplaintService.instance.stream.listen((event) {
+      final targetId = event['complaintId']?.toString();
+      if (targetId == widget.complaintId && mounted) {
+        final newStatus = event['status']?.toString();
+        if (newStatus != null) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.bolt_rounded, color: Color(0xffFBBF24), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Live Update: Status set to ${newStatus.replaceAll('_', ' ')}'),
+                  ),
+                ],
+              ),
+              backgroundColor: PriceShieldColors.navy,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        final rawComplaint = event['complaint'];
+        if (rawComplaint is Map) {
+          setState(() {
+            _liveComplaint = Map<String, dynamic>.from(rawComplaint);
+            _complaint = Future.value(_liveComplaint!);
+          });
+        } else {
+          _reload();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    RealtimeComplaintService.instance.stop();
+    super.dispose();
+  }
 
   Future<void> _reload() async =>
-      setState(() => _complaint = _api.getComplaint(widget.complaintId));
+      setState(() {
+        _liveComplaint = null;
+        _complaint = _api.getComplaint(widget.complaintId);
+      });
+
+  Future<void> _applyComplaintBoost() async {
+    setState(() => _isBoosting = true);
+    try {
+      final res = await _api.boostComplaint(widget.complaintId);
+      if (!mounted) return;
+      RealtimeComplaintService.instance.notifyComplaintUpdated({
+        'type': 'COMPLAINT_UPDATED',
+        'complaintId': widget.complaintId,
+        'isBoosted': true,
+        'status': res['status'] ?? 'PENDING',
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚡ Priority Boost activated! Grievance prioritized for 24h Legal SLA.'),
+          backgroundColor: PriceShieldColors.navy,
+        ),
+      );
+      setState(() {
+        _complaint = _api.getComplaint(widget.complaintId);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not boost complaint: $e'),
+          backgroundColor: PriceShieldColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isBoosting = false);
+    }
+  }
 
   Future<void> _confirmWithdraw() async {
     final shouldWithdraw = await showDialog<bool>(
@@ -288,24 +376,37 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
         body: FutureBuilder<Map<String, dynamic>>(
           future: _complaint,
           builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(
-                child: CircularProgressIndicator(color: PriceShieldColors.primary),
-              );
+            final data = _liveComplaint ?? snapshot.data;
+            if (data == null) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(color: PriceShieldColors.primary),
+                );
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: InlineError(
+                    message: 'We could not load your complaint details.',
+                    onRetry: _reload,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
             }
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(20),
-                child: InlineError(
-                  message: 'We could not load your complaint details.',
-                  onRetry: _reload,
-                ),
-              );
-            }
-            final data = snapshot.data!;
             final rawEvidence = data['evidence'];
             final List evidence = rawEvidence is List ? rawEvidence : const [];
-            final rawStatus = data['status']?.toString().toUpperCase() ?? 'PENDING';
+            String effectiveStatus = data['status']?.toString().toUpperCase() ?? 'PENDING';
+            final rawFlags = data['riskFlags'];
+            if (rawFlags is List && effectiveStatus == 'PENDING') {
+              for (final flag in rawFlags) {
+                if (flag is String && flag.startsWith('STAGE_')) {
+                  effectiveStatus = flag.substring(6);
+                  break;
+                }
+              }
+            }
+            final rawStatus = effectiveStatus;
             final confidenceLevel =
                 data['confidenceLevel']?.toString().toUpperCase() ?? 'UNVERIFIED';
             final venueType =
@@ -342,7 +443,25 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
               statusColor = PriceShieldColors.danger;
               statusSubtitle =
                   'This complaint could not be verified with the provided evidence.';
+            } else if (rawStatus == 'INVESTIGATING') {
+              friendlyStatus = 'Under Investigation';
+              statusColor = const Color(0xff2563EB);
+              statusSubtitle =
+                  'PriceShield operations desk is actively investigating this store.';
+            } else if (rawStatus == 'SETTLEMENT_PROPOSED') {
+              friendlyStatus = 'Settlement Offered';
+              statusColor = const Color(0xff0F9D8A);
+              statusSubtitle =
+                  'A 48h instant refund conciliation offer was sent to the merchant.';
+            } else if (rawStatus == 'ESCALATED_LEGAL_METROLOGY') {
+              friendlyStatus = 'Escalated to LM Dept';
+              statusColor = const Color(0xff8B5CF6);
+              statusSubtitle =
+                  'Docket forwarded to Department of Legal Metrology for inspection.';
             }
+
+            final isBoosted = data['isBoosted'] == true ||
+                (rawFlags is List && (rawFlags.contains('PRIORITY_BOOST_24H') || rawFlags.contains('BOOSTED')));
 
             final showVerificationPendingWatermark =
                 confidenceLevel == 'UNVERIFIED' ||
@@ -376,6 +495,110 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
               children: [
+                if (isBoosted)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xffFFFBEB), Color(0xffFEF3C7)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xffFDE68A)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffF59E0B),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '⚡ PRIORITY BOOST ACTIVE',
+                                style: TextStyle(
+                                  color: Color(0xff92400E),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Case prioritized under 24h statutory Legal Notice SLA.',
+                                style: TextStyle(color: Color(0xffB45309), fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (rawStatus == 'PENDING')
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xffE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xff0F9D8A).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.bolt_rounded, color: Color(0xff0F9D8A), size: 18),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Expedite Grievance Review', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                  Text('Activate 24h Priority SLA & Direct Store Notice', style: TextStyle(fontSize: 11, color: PriceShieldColors.muted)),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlansScreen())),
+                              child: const Text('Plans', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 38,
+                          child: ElevatedButton.icon(
+                            onPressed: _isBoosting ? null : _applyComplaintBoost,
+                            icon: _isBoosting
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.bolt_rounded, size: 16),
+                            label: const Text('⚡ Apply Priority Boost Now', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff0F9D8A),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Top Header Card
                 AppCard(
                   child: Column(

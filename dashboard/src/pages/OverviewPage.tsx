@@ -106,7 +106,7 @@ export const OverviewPage: React.FC = () => {
             className="bg-[#0F9D8A] hover:bg-[#0C8373] text-white font-bold shadow-md"
           >
             <Zap className="w-4 h-4 mr-1.5" />
-            Review 14 Pending Cases
+            Review {metrics?.casesAwaitingReview ?? 0} Pending Cases
           </Button>
           <Button
             variant="outline"

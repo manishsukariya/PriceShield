@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
+import 'package:priceshield/core/services/realtime_complaint_service.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaint_details_screen.dart';
@@ -19,6 +21,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   String _filter = 'ALL';
+  StreamSubscription<Map<String, dynamic>>? _realtimeSub;
 
   @override
   void initState() {
@@ -29,6 +32,44 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       _loading = false;
     }
     _loadInitial(isBackground: _cachedItems.isNotEmpty);
+
+    RealtimeComplaintService.instance.start();
+    _realtimeSub = RealtimeComplaintService.instance.stream.listen((event) {
+      if (!mounted) return;
+      final complaintId = event['complaintId']?.toString();
+      if (complaintId == null) return;
+
+      final index = _items.indexWhere((item) => item['id']?.toString() == complaintId);
+      final rawComplaint = event['complaint'];
+      final Map<String, dynamic> updatedMap = rawComplaint is Map
+          ? Map<String, dynamic>.from(rawComplaint)
+          : {
+              'id': complaintId,
+              'status': event['status'],
+              'confidenceLevel': event['confidenceLevel'],
+              'moderationNotes': event['moderationNotes'],
+              'merchantResponse': event['merchantResponse'],
+              'isBoosted': event['isBoosted'],
+            };
+
+      setState(() {
+        if (index != -1) {
+          _items[index] = {
+            ..._items[index],
+            ...updatedMap,
+          };
+        } else if (rawComplaint is Map) {
+          _items.insert(0, Map<String, dynamic>.from(rawComplaint));
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    RealtimeComplaintService.instance.stop();
+    super.dispose();
   }
 
   Future<void> _loadInitial({bool isBackground = false}) async {
@@ -233,7 +274,20 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     );
   }
 
-  String _status(Map<String, dynamic> item) => item['status']?.toString().toUpperCase() ?? 'PENDING';
+  String _status(Map<String, dynamic> item) {
+    final status = item['status']?.toString().toUpperCase() ?? 'PENDING';
+    if (status == 'PENDING') {
+      final flags = item['riskFlags'];
+      if (flags is List) {
+        for (final flag in flags) {
+          if (flag is String && flag.startsWith('STAGE_')) {
+            return flag.substring(6);
+          }
+        }
+      }
+    }
+    return status;
+  }
 
   Widget _summary(int total, int active, int resolved) => Container(
         padding: const EdgeInsets.all(18),
@@ -250,13 +304,22 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     final status = _status(item);
     final confidence = item['confidenceLevel']?.toString().toUpperCase();
     final merchantName = item['merchantName']?.toString();
+    final rawFlags = item['riskFlags'];
+    final isBoosted = item['isBoosted'] == true ||
+        (rawFlags is List && (rawFlags.contains('PRIORITY_BOOST_24H') || rawFlags.contains('BOOSTED')));
     final statusColor = status == 'RESOLVED'
         ? PriceShieldColors.success
         : status == 'REJECTED'
             ? PriceShieldColors.danger
             : status == 'WITHDRAWN'
                 ? PriceShieldColors.muted
-                : PriceShieldColors.warning;
+                : (status == 'INVESTIGATING'
+                    ? const Color(0xff2563EB)
+                    : (status == 'SETTLEMENT_PROPOSED'
+                        ? const Color(0xff0F9D8A)
+                        : (status == 'ESCALATED_LEGAL_METROLOGY'
+                            ? const Color(0xff8B5CF6)
+                            : PriceShieldColors.warning)));
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
@@ -286,6 +349,10 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (isBoosted) ...[
+                    const StatusPill(label: '⚡ BOOSTED', color: Color(0xffD97706)),
+                    const SizedBox(width: 6),
+                  ],
                   StatusPill(label: _friendlyStatus(status), color: statusColor),
                 ]),
                 if (confidence != null && confidence.isNotEmpty) ...[
@@ -311,7 +378,13 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     );
   }
 
-  String _friendlyStatus(String status) => status == 'UNDER_REVIEW' ? 'Under review' : status[0] + status.substring(1).toLowerCase();
+  String _friendlyStatus(String status) {
+    if (status == 'UNDER_REVIEW') return 'Under review';
+    if (status == 'INVESTIGATING') return 'Investigating';
+    if (status == 'SETTLEMENT_PROPOSED') return 'Settlement Offered';
+    if (status == 'ESCALATED_LEGAL_METROLOGY') return 'Escalated to LM';
+    return status.isEmpty ? 'Pending' : status[0] + status.substring(1).replaceAll('_', ' ').toLowerCase();
+  }
   Widget _amount(String label, dynamic value, [Color color = PriceShieldColors.text]) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: PriceShieldColors.muted, fontSize: 11)), const SizedBox(height: 4), Text('\u{20B9}${value ?? 0}', style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 14))]));
 }
 

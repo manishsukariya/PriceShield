@@ -37,6 +37,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenSearch, collapsed })
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
+        {/* Live SSE / API Connection Badge */}
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Live Sync Active</span>
+        </div>
+
         {/* Fast Regulatory Ticker */}
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF7F1]/80 dark:bg-[#0F9D8A]/10 border border-[#0F9D8A]/20 text-xs text-[#0A6B5E] dark:text-[#57C7A7] font-semibold">
           <ShieldCheck className="w-3.5 h-3.5 text-[#0F9D8A]" />

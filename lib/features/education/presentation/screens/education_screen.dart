@@ -236,7 +236,7 @@ class ConsumerEducationScreen extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: AppCard(
           child: Row(children: [
-            CircleAvatar(backgroundColor: color.withOpacity(.15), child: Icon(icon, color: color)),
+            CircleAvatar(backgroundColor: color.withValues(alpha: 0.15), child: Icon(icon, color: color)),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)), const SizedBox(height: 6), Text(desc, style: const TextStyle(fontSize: 13, color: PriceShieldColors.muted, height: 1.35))])),
           ]),

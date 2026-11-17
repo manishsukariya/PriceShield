@@ -4,6 +4,7 @@ import { productRoutes } from '../modules/products/routes.js';
 import { productSubmissionRoutes } from '../modules/products/submissions-routes.js';
 import { scanRoutes } from '../modules/scans/routes.js';
 import { userRoutes } from '../modules/users/routes.js';
+import { planRoutes } from '../modules/plans/routes.js';
 
 export function apiRoutes(context) {
   const router = Router();
@@ -20,5 +21,6 @@ export function apiRoutes(context) {
   router.use(productSubmissionRoutes(context));
   router.use(scanRoutes(context));
   router.use(complaintRoutes(context));
+  router.use(planRoutes(context));
   return router;
 }

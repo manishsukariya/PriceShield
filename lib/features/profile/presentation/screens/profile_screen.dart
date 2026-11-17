@@ -8,6 +8,7 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaints_screen.dart';
 import 'package:priceshield/features/deescalation/services/helpline_service.dart';
 import 'package:priceshield/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:priceshield/features/profile/presentation/screens/plans_screen.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 
@@ -267,7 +268,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 24),
         AppCard(padding: const EdgeInsets.all(18), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_stat('Total', _total), _stat('Resolved', _resolved), _stat('Pending', _total - _resolved)])),
         const SizedBox(height: 20),
-        AppCard(padding: EdgeInsets.zero, child: Column(children: [ListTile(leading: const Icon(Icons.person_outline, color: PriceShieldColors.primary), title: const Text('Edit profile'), trailing: const Icon(Icons.chevron_right), onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())); if (mounted) _refresh(); }), const Divider(height: 1), ListTile(leading: const Icon(Icons.receipt_long_outlined, color: PriceShieldColors.primary), title: const Text('Complaint history'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen())))])),
+        AppCard(padding: EdgeInsets.zero, child: Column(children: [
+          ListTile(leading: const Icon(Icons.person_outline, color: PriceShieldColors.primary), title: const Text('Edit profile'), trailing: const Icon(Icons.chevron_right), onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())); if (mounted) _refresh(); }),
+          const Divider(height: 1),
+          ListTile(leading: const Icon(Icons.receipt_long_outlined, color: PriceShieldColors.primary), title: const Text('Complaint history'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen()))),
+          const Divider(height: 1),
+          ListTile(leading: const Icon(Icons.bolt_rounded, color: Color(0xff0F9D8A)), title: const Text('Protection Plans & Boosts'), subtitle: const Text('Priority grievance escalation & Legal Metrology SLA', style: TextStyle(fontSize: 11)), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlansScreen()))),
+        ])),
         const SizedBox(height: 20),
         OutlinedButton.icon(onPressed: (_loading || _deleting) ? null : () async { await authService.logout(); }, icon: const Icon(Icons.logout), label: const Text('Logout'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: Colors.red, side: const BorderSide(color: Colors.red))),
         const SizedBox(height: 12),

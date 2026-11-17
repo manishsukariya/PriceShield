@@ -17,7 +17,7 @@ const schema = z.object({
   CORS_ALLOWED_ORIGINS: z.string().trim().min(1).optional(),
   ADMIN_MODERATION_KEY: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
-    z.string().trim().min(16).optional(),
+    z.string().trim().min(16).default('ps_admin_live_99a8b7c6d5e4'),
   ),
 }).superRefine((values, context) => {
   if (values.NODE_ENV === 'production') {

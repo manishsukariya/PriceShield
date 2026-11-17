@@ -12,7 +12,7 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/deescalation/services/helpline_service.dart';
 
 class _EvidenceDraft {
-  const _EvidenceDraft({
+  _EvidenceDraft({
     required this.file,
     required this.isVideo,
     required this.role,
@@ -21,6 +21,7 @@ class _EvidenceDraft {
   final File file;
   final bool isVideo;
   final String role;
+  CloudinaryUpload? uploaded;
 }
 
 class ComplaintScreen extends StatefulWidget {
@@ -470,7 +471,7 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
     final now = DateTime.now();
     final earliestAllowed = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 30));
-    if (selectedDate.isAfter(now.add(const Duration(minutes: 15)))) {
+    if (selectedDate.isAfter(now.add(const Duration(hours: 24)))) {
       return 'Purchase date cannot be in the future.';
     }
     if (selectedDate.isBefore(earliestAllowed)) {
@@ -495,19 +496,74 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
       setState(() => loading = true);
 
       final uploadedEvidence = <Map<String, dynamic>>[];
-      for (final item in _evidenceItems) {
-        final uploaded = await CloudinaryUploadService.uploadFile(
-          file: item.file,
-          isVideo: item.isVideo,
-        );
-        uploadedEvidence.add({
-          'url': uploaded.secureUrl,
-          'publicId': uploaded.publicId,
-          'resourceType': uploaded.resourceType,
-          'mediaType': item.isVideo ? 'VIDEO' : 'IMAGE',
-          'role': item.role,
-          'sha256Hash': uploaded.sha256Hash,
-        });
+      for (final item in List<_EvidenceDraft>.from(_evidenceItems)) {
+        if (item.uploaded != null) {
+          uploadedEvidence.add({
+            'url': item.uploaded!.secureUrl,
+            'publicId': item.uploaded!.publicId,
+            'resourceType': item.uploaded!.resourceType,
+            'mediaType': item.isVideo ? 'VIDEO' : 'IMAGE',
+            'role': item.role,
+            'sha256Hash': item.uploaded!.sha256Hash,
+          });
+          continue;
+        }
+
+        try {
+          final uploaded = await CloudinaryUploadService.uploadFile(
+            file: item.file,
+            isVideo: item.isVideo,
+          );
+          item.uploaded = uploaded;
+          uploadedEvidence.add({
+            'url': uploaded.secureUrl,
+            'publicId': uploaded.publicId,
+            'resourceType': uploaded.resourceType,
+            'mediaType': item.isVideo ? 'VIDEO' : 'IMAGE',
+            'role': item.role,
+            'sha256Hash': uploaded.sha256Hash,
+          });
+        } catch (uploadError) {
+          final hasPacketPhoto = uploadedEvidence.any((e) => e['role'] == 'PACKET_MRP');
+          if (item.isVideo && hasPacketPhoto && mounted) {
+            setState(() => loading = false);
+            final proceedWithPhotos = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Video Upload Interrupted'),
+                content: const Text(
+                  'Video proof upload was interrupted by network. Your photo proofs (Packet MRP & receipts) are already uploaded!\n\nWould you like to submit your complaint now with the photo proofs, or retry the video?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Retry Video'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F9D8A),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Submit with Photos'),
+                  ),
+                ],
+              ),
+            );
+
+            if (proceedWithPhotos == true) {
+              setState(() {
+                _evidenceItems.remove(item);
+                loading = true;
+              });
+              break;
+            } else {
+              return;
+            }
+          } else {
+            rethrow;
+          }
+        }
       }
 
       if (!_api.isConfigured) {

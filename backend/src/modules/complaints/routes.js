@@ -81,7 +81,17 @@ const createComplaintSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
   description: z.string().trim().max(5000).optional(),
-  purchaseDate: z.coerce.date().optional(),
+  purchaseDate: z.preprocess((val) => {
+    if (typeof val === 'string' && val.trim()) {
+      const trimmed = val.trim();
+      // If client sent an ISO string without timezone offset (e.g. from local DateTime in IST: "2026-11-17T20:45:00.000"),
+      // append +05:30 (India Standard Time) so it is not erroneously interpreted as UTC in the future.
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(trimmed)) {
+        return new Date(`${trimmed}+05:30`);
+      }
+    }
+    return val;
+  }, z.coerce.date().optional()),
   evidence: z.array(evidenceSchema).max(MAX_EVIDENCE_ITEMS).optional(),
   clientRequestId: z.string().trim().min(8).max(120).optional(),
 }).superRefine((value, ctx) => {

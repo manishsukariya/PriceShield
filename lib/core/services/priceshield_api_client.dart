@@ -282,7 +282,7 @@ class PriceShieldApiClient {
       if (merchantVpa != null && merchantVpa.trim().isNotEmpty)
         'merchantVpa': merchantVpa.trim().toLowerCase(),
       'address': address,
-      if (purchaseDate != null) 'purchaseDate': purchaseDate.toIso8601String(),
+      if (purchaseDate != null) 'purchaseDate': purchaseDate.toUtc().toIso8601String(),
       'latitude': ?latitude,
       'longitude': ?longitude,
       if (description != null && description.trim().isNotEmpty)

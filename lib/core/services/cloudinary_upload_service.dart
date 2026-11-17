@@ -70,17 +70,54 @@ class CloudinaryUploadService {
       'api.cloudinary.com',
       '/v1_1/$cloudName/$resourceType/upload',
     );
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['upload_preset'] = preset
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
 
-    final streamedResponse = await request.send().timeout(
-          const Duration(minutes: 2),
-          onTimeout: () => throw StateError(
-            'Upload took too long. Please check your internet connection and try again.',
-          ),
-        );
-    final response = await http.Response.fromStream(streamedResponse);
+    int attempts = 0;
+    const maxAttempts = 2;
+    http.Response? response;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        final request = http.MultipartRequest('POST', uri)
+          ..fields['upload_preset'] = preset
+          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+        final streamedResponse = await request.send().timeout(
+              Duration(minutes: isVideo ? 3 : 1),
+              onTimeout: () => throw StateError(
+                'Upload timed out. Please check your internet connection and try again.',
+              ),
+            );
+        response = await http.Response.fromStream(streamedResponse);
+        break;
+      } on SocketException {
+        if (attempts >= maxAttempts) {
+          throw StateError(
+            isVideo
+                ? 'Video upload connection was interrupted. Please ensure stable internet or proceed with photo proofs.'
+                : 'Upload connection was interrupted. Please check your internet connection and try again.',
+          );
+        }
+        await Future.delayed(const Duration(milliseconds: 600));
+      } on http.ClientException {
+        if (attempts >= maxAttempts) {
+          throw StateError(
+            isVideo
+                ? 'Video upload was disconnected by network. Please retry or proceed with photo proofs.'
+                : 'Upload was disconnected. Please check your internet connection and try again.',
+          );
+        }
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+    }
+
+    if (response == null) {
+      throw StateError(
+        isVideo
+            ? 'Video upload failed. Please ensure a stable network or proceed with photo proofs.'
+            : 'Proof upload failed. Please check your network and try again.',
+      );
+    }
 
     Map<String, dynamic> payload;
     try {

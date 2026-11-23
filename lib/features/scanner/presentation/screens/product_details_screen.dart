@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:priceshield/core/services/auth_session.dart';
 import 'package:priceshield/core/services/cloudinary_upload_service.dart';
 import 'package:priceshield/core/services/gs1_india_brand_resolver.dart';
+import 'package:priceshield/core/services/indian_dual_batch_resolver.dart';
 import 'package:priceshield/core/services/indian_fmcg_mrp_heuristics.dart';
 import 'package:priceshield/core/services/mrp_enrichment_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
@@ -20,11 +21,15 @@ class ProductDetailsScreen extends StatefulWidget {
     required this.barcode,
     this.apiClient,
     this.enrichmentService,
+    this.initialName,
+    this.initialMrp,
   });
 
   final String barcode;
   final PriceShieldApiClient? apiClient;
   final MrpEnrichmentService? enrichmentService;
+  final String? initialName;
+  final num? initialMrp;
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -54,6 +59,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _isStickerFlagged = false;
   String _venueType = 'RETAIL';
   num? _catalogBaseMrp;
+  num? _extractedOcrMrp;
 
   PriceShieldApiClient get _api => widget.apiClient ?? priceShieldApi;
   MrpEnrichmentService get _enrichment =>
@@ -62,6 +68,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialName != null && widget.initialName!.isNotEmpty) {
+      _nameController.text = widget.initialName!;
+    }
+    if (widget.initialMrp != null && widget.initialMrp! > 0) {
+      _mrpController.text = MrpEnrichmentService.formatMrp(widget.initialMrp!);
+      _catalogBaseMrp = widget.initialMrp;
+      _isKnownProduct = true;
+    }
     _detectedBrandInfo = Gs1IndiaBrandResolver.resolve(widget.barcode);
     final cached = _api.getCachedProduct(widget.barcode);
     if (cached != null) {
@@ -131,6 +145,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _fetchProduct() async {
+    if (widget.barcode.startsWith('NOBAR-')) {
+      _loading = false;
+      _isKnownProduct = _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
+      _productSource = 'unlisted_custom_item';
+      _isReferenceEstimate = false;
+      if (mounted) setState(() {});
+      return;
+    }
     Map<String, dynamic>? fetchedMissingMrpProduct;
     try {
       final product = await _api.getProduct(widget.barcode);
@@ -340,8 +362,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         // Prioritize the freshly scanned close-up image before combined OCR text
         final extractedMrp =
             _extractMrpFromOcr(text) ?? _extractMrpFromOcr(_ocrText);
-        if (_mrpController.text.trim().isEmpty && extractedMrp != null && extractedMrp > 0) {
-          _mrpController.text = MrpEnrichmentService.formatMrp(extractedMrp);
+        if (extractedMrp != null && extractedMrp > 0) {
+          final formatted = MrpEnrichmentService.formatMrp(extractedMrp);
+          final previous = _mrpController.text.trim();
+          _extractedOcrMrp = extractedMrp;
+          _mrpController.text = formatted;
+          _catalogBaseMrp = extractedMrp;
+          _productSource = 'packet_ocr_verified';
+          _isKnownProduct = true;
+          if (mounted && previous != formatted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Packet MRP scanned: ₹$formatted (Updated from $previous)'),
+                    ),
+                  ],
+                ),
+                backgroundColor: PriceShieldColors.navy,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         }
 
         // Suggest name from first clear title-like line if currently empty
@@ -631,7 +677,44 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 Text(_loadError!, style: const TextStyle(color: Colors.redAccent)),
               ],
               const SizedBox(height: 20),
-              AppCard(child: Row(children: [const Icon(Icons.qr_code_2_rounded, color: PriceShieldColors.primary), const SizedBox(width: 10), Expanded(child: Text('Barcode: ${widget.barcode}', style: const TextStyle(color: PriceShieldColors.muted)))])),
+              AppCard(
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.barcode.startsWith('NOBAR-') ? Icons.inventory_2_outlined : Icons.qr_code_2_rounded,
+                      color: PriceShieldColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.barcode.startsWith('NOBAR-')
+                            ? 'Unbarcoded Item (Medicine / Rail Neer / Loose Pack)'
+                            : 'Barcode: ${widget.barcode}',
+                        style: TextStyle(
+                          color: widget.barcode.startsWith('NOBAR-') ? PriceShieldColors.navy : PriceShieldColors.muted,
+                          fontWeight: widget.barcode.startsWith('NOBAR-') ? FontWeight.w700 : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    if (widget.barcode.startsWith('NOBAR-'))
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: PriceShieldColors.mint,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'NO BARCODE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: PriceShieldColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
@@ -703,6 +786,82 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ),
               ],
               const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final dualBatchVariants = IndianDualBatchResolver.resolveVariants(
+                    barcode: widget.barcode,
+                    productName: _nameController.text,
+                    catalogMrp: _catalogBaseMrp,
+                    ocrExtractedMrp: _extractedOcrMrp,
+                  );
+                  if (dualBatchVariants.isEmpty) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xff86EFAC)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.layers_outlined, size: 16, color: Color(0xff166534)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Batch Price Variants (1-Tap Selection)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xff166534),
+                              ),
+                            ),
+                            Spacer(),
+                            Text(
+                              'Check packet stamp',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xff15803D),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: dualBatchVariants.map((variant) {
+                            final isSelected = _mrpController.text.trim() == variant.mrp.toString();
+                            return ChoiceChip(
+                              label: Text(variant.label),
+                              selected: isSelected,
+                              onSelected: (_) {
+                                setState(() {
+                                  _mrpController.text = variant.mrp.toString();
+                                });
+                              },
+                              selectedColor: const Color(0xff166534),
+                              backgroundColor: Colors.white,
+                              side: BorderSide(
+                                color: isSelected ? const Color(0xff166534) : const Color(0xff86EFAC),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected ? Colors.white : const Color(0xff166534),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               Wrap(
                 spacing: 8,
                 runSpacing: 6,

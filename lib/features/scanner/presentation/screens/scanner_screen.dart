@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:priceshield/features/scanner/presentation/screens/no_barcode_scan_screen.dart';
 import 'package:priceshield/features/scanner/presentation/screens/product_details_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -48,6 +49,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
     await Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(barcode: code)));
   }
 
+  void _openNoBarcodeScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NoBarcodeScanScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,9 +100,71 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
           ),
-          IgnorePointer(child: Center(child: Container(width: 270, height: 170, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), borderRadius: BorderRadius.circular(22))))),
-          Positioned(top: 24, left: 24, right: 24, child: Text('Place the barcode inside the frame', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, shadows: [Shadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 4)]))),
-          Positioned(bottom: 28, left: 24, right: 24, child: ElevatedButton.icon(onPressed: _openingProduct ? null : _enterBarcodeManually, icon: const Icon(Icons.keyboard_outlined), label: const Text('Enter barcode manually'), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black))),
+          IgnorePointer(
+            child: Center(
+              child: Container(
+                width: 270,
+                height: 170,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 3),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 24,
+            left: 24,
+            right: 24,
+            child: Text(
+              'Place the barcode inside the frame',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                shadows: [
+                  Shadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 4),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 24,
+            left: 20,
+            right: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _openingProduct ? null : _enterBarcodeManually,
+                  icon: const Icon(Icons.keyboard_outlined),
+                  label: const Text('Enter barcode manually'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 46),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _openingProduct ? null : _openNoBarcodeScreen,
+                  icon: const Icon(Icons.document_scanner_outlined, color: Colors.white, size: 18),
+                  label: const Text(
+                    'No Barcode? (Camera OCR Live Auto-Fill)',
+                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white60, width: 1.2),
+                    minimumSize: const Size(double.infinity, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    backgroundColor: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

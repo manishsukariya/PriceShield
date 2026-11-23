@@ -32,8 +32,7 @@ export const CasesPage: React.FC = () => {
 
   const loadCases = async () => {
     const list = await api.getCases({
-      status: selectedStatus === 'BOOSTED' ? undefined : selectedStatus,
-      isBoostedOnly: selectedStatus === 'BOOSTED',
+      status: selectedStatus === 'ALL' ? undefined : selectedStatus,
       confidenceLevel: selectedConfidence,
       search,
     });
@@ -61,7 +60,6 @@ export const CasesPage: React.FC = () => {
 
   const statusFilterTabs = [
     { key: 'ALL', label: 'All Cases' },
-    { key: 'BOOSTED', label: '⚡ Priority Boosted' },
     { key: 'PENDING', label: 'Pending Review' },
     { key: 'INVESTIGATING', label: 'Investigating' },
     { key: 'SETTLEMENT_PROPOSED', label: 'Settlement Dispatched' },
@@ -170,11 +168,6 @@ export const CasesPage: React.FC = () => {
                         {c.docketId}
                         <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
-                      {c.isBoosted && (
-                        <span className="inline-flex items-center gap-0.5 mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[10px]">
-                          ⚡ BOOSTED
-                        </span>
-                      )}
                     </td>
 
                     <td className="py-4 px-4 text-slate-500 whitespace-nowrap">

@@ -84,34 +84,6 @@ export interface CaseItem {
   consumerName: string;
   consumerEmail: string;
   consumerPhoneMasked: string;
-  isBoosted?: boolean;
-  boostTier?: string;
-  boostExpiresAt?: string;
-}
-
-export interface ProtectionPlan {
-  id: string;
-  name: string;
-  category: 'CONSUMER' | 'MERCHANT';
-  price: number;
-  interval: string;
-  badge: string;
-  description: string;
-  slaTurnaroundHours: number;
-  monthlyBoostCredits: number;
-  features: string[];
-  isPopular: boolean;
-  isActive: boolean;
-}
-
-export interface PlanStats {
-  totalUsers: number;
-  activeSubscribers: number;
-  proSubscribers: number;
-  guardianSubscribers: number;
-  boostedComplaintsActive: number;
-  monthlyRecurringRevenueRupees: number;
-  slaAdherencePercent: number;
 }
 
 export interface ProductItem {

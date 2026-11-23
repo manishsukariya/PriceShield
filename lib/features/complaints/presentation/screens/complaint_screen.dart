@@ -32,6 +32,7 @@ class ComplaintScreen extends StatefulWidget {
   final String? initialNotes;
   final String venueType;
   final PriceShieldApiClient? apiClient;
+  final List<File>? initialPacketPhotos;
 
   const ComplaintScreen({
     super.key,
@@ -42,6 +43,7 @@ class ComplaintScreen extends StatefulWidget {
     this.initialNotes,
     this.venueType = 'RETAIL',
     this.apiClient,
+    this.initialPacketPhotos,
   });
 
   static String predictConfidenceLevel(Iterable<({String role, bool isVideo})> items) {
@@ -97,6 +99,13 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     super.initState();
     if (widget.initialNotes != null && widget.initialNotes!.isNotEmpty) {
       descController.text = widget.initialNotes!;
+    }
+    if (widget.initialPacketPhotos != null && widget.initialPacketPhotos!.isNotEmpty) {
+      for (final file in widget.initialPacketPhotos!) {
+        _evidenceItems.add(
+          _EvidenceDraft(file: file, isVideo: false, role: 'PACKET_MRP'),
+        );
+      }
     }
     _syncDefaultTotalPaid();
   }

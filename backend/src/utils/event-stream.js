@@ -87,8 +87,6 @@ export function broadcastEvent(eventName, payload, { userId = null } = {}) {
  */
 export function broadcastComplaintUpdated(complaint) {
   if (!complaint) return;
-  const isBoosted = Array.isArray(complaint.riskFlags) &&
-    (complaint.riskFlags.includes('PRIORITY_BOOST_24H') || complaint.riskFlags.includes('BOOSTED'));
 
   broadcastEvent('complaint_updated', {
     type: 'COMPLAINT_UPDATED',
@@ -99,8 +97,6 @@ export function broadcastComplaintUpdated(complaint) {
     isPublicEligible: complaint.isPublicEligible,
     moderationNotes: complaint.moderationNotes,
     merchantResponse: complaint.merchantResponse,
-    isBoosted,
-    boostTier: isBoosted ? 'PRIORITY_24H' : 'STANDARD',
     updatedAt: complaint.updatedAt || new Date().toISOString(),
     complaint,
   }, { userId: complaint.userId });

@@ -11,7 +11,6 @@ import {
   Eye,
   Clock,
   ScanLine,
-  Zap,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -95,17 +94,6 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  const handleToggleBoost = async () => {
-    const nextBoost = !caseItem.isBoosted;
-    try {
-      const updated = await api.boostCase(caseItem.id, nextBoost);
-      setCaseItem(updated);
-      showToast(nextBoost ? '⚡ Case elevated to 24h Priority Boost SLA!' : 'Priority Boost removed.');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleSettlementConfirm = async (refundAmount: number) => {
     const updated = await api.proposeMerchantSettlement(caseItem.id, refundAmount);
     setCaseItem(updated);
@@ -143,20 +131,6 @@ export const CaseDetailPage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleToggleBoost}
-            className={`font-bold text-xs ${
-              caseItem.isBoosted
-                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400'
-                : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            <Zap className={`w-4 h-4 mr-1.5 ${caseItem.isBoosted ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
-            {caseItem.isBoosted ? '⚡ Boosted (24h SLA)' : '⚡ Apply Priority Boost'}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
             onClick={() => setInspectorOpen(true)}
             className="font-semibold text-xs"
           >
@@ -190,32 +164,10 @@ export const CaseDetailPage: React.FC = () => {
       {toastMsg && (
         <div className="p-3.5 rounded-xl bg-[#10233F] text-white text-xs font-bold flex items-center justify-between border border-[#0F9D8A] animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <ShieldCheck className="w-4 h-4 text-[#0F9D8A]" />
             <span>{toastMsg}</span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono">LIVE UPDATE DISPATCHED</span>
-        </div>
-      )}
-
-      {/* Priority Boost Status Banner if active */}
-      {caseItem.isBoosted && (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-              <Zap className="w-5 h-5 fill-amber-500" />
-            </div>
-            <div>
-              <span className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider block">
-                Priority Escalation SLA Active (24-Hour Fast Track)
-              </span>
-              <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
-                Statutory 24h Legal Notice drafted. Assigned to urgent Legal Metrology conciliation queue.
-              </p>
-            </div>
-          </div>
-          <Badge variant="outline" className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400 font-bold font-mono">
-            EXPEDITED SLA
-          </Badge>
         </div>
       )}
 

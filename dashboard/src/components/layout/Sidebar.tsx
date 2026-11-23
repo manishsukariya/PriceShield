@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Zap,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -32,15 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       to: '/cases',
       label: 'Complaints & Dockets',
       icon: <FileCheck2 className="w-4 h-4" />,
-      badge: '47',
-      badgeColor: 'bg-[#0F9D8A] text-white',
-    },
-    {
-      to: '/plans',
-      label: 'Plans & Priority Boost',
-      icon: <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />,
-      badge: '⚡ BOOST',
-      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold',
+      badge: undefined,
     },
     {
       to: '/scans',

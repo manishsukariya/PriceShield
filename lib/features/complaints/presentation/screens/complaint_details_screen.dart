@@ -10,7 +10,6 @@ import 'package:priceshield/core/services/realtime_complaint_service.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/services/escalation_pack_service.dart';
-import 'package:priceshield/features/profile/presentation/screens/plans_screen.dart';
 
 class ComplaintDetailsScreen extends StatefulWidget {
   const ComplaintDetailsScreen({
@@ -31,7 +30,6 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
   late Future<Map<String, dynamic>> _complaint;
   Map<String, dynamic>? _liveComplaint;
   bool _uploadingEvidence = false;
-  bool _isBoosting = false;
   StreamSubscription<Map<String, dynamic>>? _realtimeSub;
 
   @override
@@ -86,39 +84,6 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
         _liveComplaint = null;
         _complaint = _api.getComplaint(widget.complaintId);
       });
-
-  Future<void> _applyComplaintBoost() async {
-    setState(() => _isBoosting = true);
-    try {
-      final res = await _api.boostComplaint(widget.complaintId);
-      if (!mounted) return;
-      RealtimeComplaintService.instance.notifyComplaintUpdated({
-        'type': 'COMPLAINT_UPDATED',
-        'complaintId': widget.complaintId,
-        'isBoosted': true,
-        'status': res['status'] ?? 'PENDING',
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚡ Priority Boost activated! Grievance prioritized for 24h Legal SLA.'),
-          backgroundColor: PriceShieldColors.navy,
-        ),
-      );
-      setState(() {
-        _complaint = _api.getComplaint(widget.complaintId);
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not boost complaint: $e'),
-          backgroundColor: PriceShieldColors.danger,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isBoosting = false);
-    }
-  }
 
   Future<void> _confirmWithdraw() async {
     final shouldWithdraw = await showDialog<bool>(
@@ -460,9 +425,6 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                   'Docket forwarded to Department of Legal Metrology for inspection.';
             }
 
-            final isBoosted = data['isBoosted'] == true ||
-                (rawFlags is List && (rawFlags.contains('PRIORITY_BOOST_24H') || rawFlags.contains('BOOSTED')));
-
             final showVerificationPendingWatermark =
                 confidenceLevel == 'UNVERIFIED' ||
                     confidenceLevel == 'BASIC' ||
@@ -495,109 +457,48 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
               children: [
-                if (isBoosted)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xffFFFBEB), Color(0xffFEF3C7)],
+                Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xffE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: PriceShieldColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.shield_outlined, color: PriceShieldColors.primary, size: 20),
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xffFDE68A)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xffF59E0B),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '⚡ PRIORITY BOOST ACTIVE',
-                                style: TextStyle(
-                                  color: Color(0xff92400E),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Case prioritized under 24h statutory Legal Notice SLA.',
-                                style: TextStyle(color: Color(0xffB45309), fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (rawStatus == 'PENDING')
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xffE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xff0F9D8A).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.bolt_rounded, color: Color(0xff0F9D8A), size: 18),
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Expedite Grievance Review', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                                  Text('Activate 24h Priority SLA & Direct Store Notice', style: TextStyle(fontSize: 11, color: PriceShieldColors.muted)),
-                                ],
+                            Text(
+                              'Official Legal Metrology Grievance',
+                              style: TextStyle(
+                                color: PriceShieldColors.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlansScreen())),
-                              child: const Text('Plans', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            SizedBox(height: 2),
+                            Text(
+                              'Tracked under Section 18(2) & 36(1) of Legal Metrology Act, 2009.',
+                              style: TextStyle(color: PriceShieldColors.muted, fontSize: 11),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 38,
-                          child: ElevatedButton.icon(
-                            onPressed: _isBoosting ? null : _applyComplaintBoost,
-                            icon: _isBoosting
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Icon(Icons.bolt_rounded, size: 16),
-                            label: const Text('⚡ Apply Priority Boost Now', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xff0F9D8A),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
 
                 // Top Header Card
                 AppCard(

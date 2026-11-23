@@ -10,7 +10,7 @@ function createMockPrisma() {
       firebaseUid: 'fb-alice',
       trustScore: 70,
       riskScore: 10,
-      riskFlags: ['PLAN_PRICESHIELD_PRO'],
+      riskFlags: [],
       updatedAt: new Date(),
     },
     {
@@ -145,48 +145,8 @@ function setupTestApp() {
   return { app, prisma };
 }
 
-describe('Realtime Event Stream & Plans API', () => {
-  it('returns available protection plans catalog for consumers and merchants', async () => {
-    const { app } = setupTestApp();
-
-    const res = await request(app).get('/api/v1/plans');
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data.plans)).toBe(true);
-    expect(res.body.data.plans.length).toBeGreaterThanOrEqual(4);
-
-    const planIds = res.body.data.plans.map((p) => p.id);
-    expect(planIds).toContain('free_shield');
-    expect(planIds).toContain('priceshield_pro');
-    expect(planIds).toContain('guardian_pro');
-    expect(planIds).toContain('verified_merchant');
-  });
-
-  it('allows authenticated user to inspect their active plan and boost credits', async () => {
-    const { app } = setupTestApp();
-
-    const res = await request(app)
-      .get('/api/v1/plans/my-plan')
-      .set('Authorization', 'Bearer token-alice');
-
-    expect(res.status).toBe(200);
-    expect(res.body.data.currentPlan.id).toBe('priceshield_pro');
-    expect(res.body.data.hasBoostAccess).toBe(true);
-    expect(res.body.data.availableBoostCredits).toBe(3);
-  });
-
-  it('allows user to boost a complaint to 24h Priority SLA', async () => {
-    const { app } = setupTestApp();
-
-    const boostRes = await request(app)
-      .post('/api/v1/complaints/cmp-101/boost')
-      .set('Authorization', 'Bearer token-alice');
-
-    expect(boostRes.status).toBe(200);
-    expect(boostRes.body.data.isBoosted).toBe(true);
-    expect(boostRes.body.data.complaint.riskFlags).toContain('PRIORITY_BOOST_24H');
-  });
-
-  it('allows admin to moderate status, boost, and add notes on complaints', async () => {
+describe('Realtime Event Stream & Admin Moderation API', () => {
+  it('allows admin to moderate status and add notes on complaints', async () => {
     const { app } = setupTestApp();
 
     const patchRes = await request(app)
@@ -195,13 +155,11 @@ describe('Realtime Event Stream & Plans API', () => {
       .send({
         status: 'RESOLVED',
         moderationNotes: 'Store owner verified printed MRP was Rs 260 and refunded Rs 25 to complainant via UPI.',
-        isBoosted: true,
       });
 
     expect(patchRes.status).toBe(200);
     expect(patchRes.body.data.complaint.status).toBe('RESOLVED');
     expect(patchRes.body.data.complaint.moderationNotes).toContain('refunded Rs 25');
-    expect(patchRes.body.data.complaint.isBoosted).toBe(true);
   });
 
   it('returns corporate operational metrics via GET /api/v1/admin/metrics', async () => {

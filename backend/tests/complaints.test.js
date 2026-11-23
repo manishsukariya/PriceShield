@@ -11,6 +11,7 @@ function createMockPrisma() {
   const users = [];
   const complaints = [];
   const evidence = [];
+  const products = [];
   let nextId = 1;
 
   const matchesFilter = (value, filter) => {
@@ -188,9 +189,24 @@ function createMockPrisma() {
         );
       },
     },
+    product: {
+      upsert: async ({ where, update, create }) => {
+        const idx = products.findIndex((p) => p.barcode === where.barcode);
+        if (idx !== -1) {
+          products[idx] = { ...products[idx], ...update, updatedAt: new Date() };
+          return products[idx];
+        }
+        const created = { id: `prod-${nextId++}`, barcode: where.barcode, ...create, createdAt: new Date(), updatedAt: new Date() };
+        products.push(created);
+        return created;
+      },
+      findUnique: async ({ where }) => {
+        return products.find((p) => p.barcode === where.barcode) ?? null;
+      },
+    },
   };
 
-  return { db, users, complaints, evidence };
+  return { db, users, complaints, evidence, products };
 }
 
 const env = {
@@ -823,5 +839,41 @@ describe('Complaint anti-fraud & moderation API', () => {
       .get(`/api/v1/complaints/${bob.body.data.id}`)
       .set('Authorization', 'Bearer token-bob');
     expect(bobFetched.body.data.storeRisk).toBeUndefined();
+  });
+
+  it('auto-heals product catalog MRP via crowdsourced packet proof (Waze/Truecaller model)', async () => {
+    const { app, db } = setup();
+
+    // Submit complaint for Lipton Green Tea with new batch MRP (190) and PACKET_MRP photo
+    const res = await request(app)
+      .post('/api/v1/complaints')
+      .set('Authorization', 'Bearer token-alice')
+      .send(
+        basePayload({
+          barcode: '8901030779312',
+          productName: 'Lipton Clear & Light Green Tea',
+          mrp: 190.00,
+          chargedPrice: 200.00,
+          totalPaid: 200.00,
+          evidence: [
+            {
+              url: 'https://res.cloudinary.com/mpz1wxhc/image/upload/v1/lipton-packet-190.jpg',
+              mediaType: 'IMAGE',
+              role: 'PACKET_MRP',
+              sha256Hash: '9'.repeat(64),
+            },
+          ],
+        }),
+      );
+
+    expect(res.status).toBe(201);
+
+    // Verify that prisma.product was auto-updated (self-healed) with the new MRP
+    const updatedProduct = await db.product.findUnique({
+      where: { barcode: '8901030779312' },
+    });
+    expect(updatedProduct).toBeDefined();
+    expect(updatedProduct.mrp).toBe(190.00);
+    expect(updatedProduct.name).toBe('Lipton Clear & Light Green Tea');
   });
 });

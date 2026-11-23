@@ -161,12 +161,10 @@ const moderateComplaintSchema = z.object({
   ),
   moderationNotes: z.string().trim().max(2000).optional(),
   merchantResponse: z.string().trim().max(2000).optional(),
-  isBoosted: z.boolean().optional(),
-  boostTier: z.string().trim().max(50).optional(),
   settlementOfferedAmount: z.number().positive().optional(),
 }).refine(
-  (value) => value.status !== undefined || value.moderationNotes !== undefined || value.merchantResponse !== undefined || value.isBoosted !== undefined || value.settlementOfferedAmount !== undefined,
-  { message: 'Provide status, moderationNotes, merchantResponse, isBoosted, or settlementOfferedAmount.' },
+  (value) => value.status !== undefined || value.moderationNotes !== undefined || value.merchantResponse !== undefined || value.settlementOfferedAmount !== undefined,
+  { message: 'Provide status, moderationNotes, merchantResponse, or settlementOfferedAmount.' },
 );
 
 export function formatComplaint(complaint) {
@@ -180,12 +178,9 @@ export function formatComplaint(complaint) {
     }
   }
 
-  const isBoosted = flags.includes('PRIORITY_BOOST_24H') || flags.includes('BOOSTED');
   return {
     ...complaint,
     status,
-    isBoosted,
-    boostTier: isBoosted ? 'PRIORITY_24H' : 'STANDARD',
   };
 }
 
@@ -366,7 +361,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
         'INVESTIGATING',
         'SETTLEMENT_PROPOSED',
         'ESCALATED_LEGAL_METROLOGY',
-        'BOOSTED',
         'ALL',
       ];
       if (!allowedStatuses.includes(rawStatus)) {
@@ -425,9 +419,7 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
       });
 
       let formatted = rawItems.map(formatComplaint);
-      if (rawStatus === 'BOOSTED') {
-        formatted = formatted.filter((c) => c.isBoosted);
-      } else if (rawStatus !== 'ALL') {
+      if (rawStatus !== 'ALL') {
         formatted = formatted.filter((c) => c.status === rawStatus);
       }
 
@@ -444,16 +436,10 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
       let totalOvercharged = 0;
       let totalScansToday = 0;
       let totalScansMonth = 0;
-      let boostedCount = 0;
 
       if (typeof prisma.complaint?.count === 'function') {
         activeCases = await prisma.complaint.count({ where: { status: 'PENDING' } });
         awaitingReview = activeCases;
-        boostedCount = await prisma.complaint.count({
-          where: {
-            riskFlags: { hasSome: ['PRIORITY_BOOST_24H', 'BOOSTED'] },
-          },
-        }).catch(() => 0);
       }
 
       if (typeof prisma.complaint?.findMany === 'function') {
@@ -485,7 +471,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
           overchargeRatePercent: 8.6,
           avgResolutionHours: 28.5,
           merchantsWatchlisted: 19,
-          boostedCasesCount: boostedCount,
         },
       });
     } catch (error) {
@@ -503,7 +488,7 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
         throw new AppError(404, 'COMPLAINT_NOT_FOUND', 'Complaint not found.');
       }
 
-      const { moderationNotes, merchantResponse, isBoosted, boostTier, settlementOfferedAmount } = request.body;
+      const { moderationNotes, merchantResponse, settlementOfferedAmount } = request.body;
       const rawRequestedStatus = request.body.status;
       let dbStatus = rawRequestedStatus ?? existing.status;
       if (['INVESTIGATING', 'SETTLEMENT_PROPOSED', 'ESCALATED_LEGAL_METROLOGY'].includes(dbStatus)) {
@@ -511,11 +496,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
       }
 
       let updatedFlags = Array.isArray(existing.riskFlags) ? [...existing.riskFlags] : [];
-      if (isBoosted === true && !updatedFlags.includes('PRIORITY_BOOST_24H')) {
-        updatedFlags.push('PRIORITY_BOOST_24H');
-      } else if (isBoosted === false) {
-        updatedFlags = updatedFlags.filter((f) => f !== 'PRIORITY_BOOST_24H' && f !== 'BOOSTED');
-      }
 
       // CRITICAL FIX: ALWAYS strip previous STAGE_ flags when updating status
       if (rawRequestedStatus) {
@@ -586,7 +566,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
       const clientComplaint = {
         ...formatComplaint(updated),
         ...(rawRequestedStatus ? { status: rawRequestedStatus } : {}),
-        ...(boostTier ? { boostTier } : {}),
         ...(settlementOfferedAmount ? { settlementOfferedAmount } : {}),
       };
 
@@ -808,6 +787,34 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
         await syncStoreCorroboration(prisma, storeFingerprint);
       }
 
+      // Crowdsourced Catalog Self-Healing (Waze/Truecaller Model):
+      // When a complaint has verified packet photo evidence (role: PACKET_MRP),
+      // auto-heal the active product catalog so all future citizens instantly get the latest verified MRP!
+      const hasPacketMrpEvidence = evidenceItems.some((e) => e.role === 'PACKET_MRP');
+      if (
+        hasPacketMrpEvidence &&
+        barcode &&
+        !barcode.startsWith('NOBAR-') &&
+        typeof prisma.product?.upsert === 'function'
+      ) {
+        try {
+          await prisma.product.upsert({
+            where: { barcode },
+            update: {
+              mrp: Number(mrp),
+              ...(productName ? { name: productName } : {}),
+            },
+            create: {
+              barcode,
+              name: productName || 'Verified FMCG Product',
+              mrp: Number(mrp),
+            },
+          });
+        } catch (selfHealingErr) {
+          console.warn('[Catalog Self-Healing] Warning during product upsert:', selfHealingErr.message);
+        }
+      }
+
       const clientComplaint = formatComplaint(complaint);
       broadcastComplaintUpdated(clientComplaint);
 
@@ -830,7 +837,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
         'INVESTIGATING',
         'SETTLEMENT_PROPOSED',
         'ESCALATED_LEGAL_METROLOGY',
-        'BOOSTED',
       ];
       if (rawStatus && !allowed.includes(rawStatus)) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid complaint status.');
       const limit = parseLimit(request.query.limit);
@@ -855,9 +861,7 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
       });
 
       let formatted = complaints.map(formatComplaint);
-      if (rawStatus === 'BOOSTED') {
-        formatted = formatted.filter((c) => c.isBoosted);
-      } else if (rawStatus && rawStatus !== 'ALL') {
+      if (rawStatus && rawStatus !== 'ALL') {
         formatted = formatted.filter((c) => c.status === rawStatus);
       }
 
@@ -894,46 +898,6 @@ export function complaintRoutes({ authenticate, authenticateOptional, prisma, en
 
       const clientComplaint = formatComplaint(complaint);
       response.json({ data: { ...clientComplaint, ...(storeRisk ? { storeRisk } : {}) } });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.post('/complaints/:id/boost', async (request, response, next) => {
-    try {
-      const complaint = await prisma.complaint.findFirst({
-        where: { id: request.params.id, userId: request.user.id },
-        include: { evidence: true },
-      });
-      if (!complaint) throw new AppError(404, 'COMPLAINT_NOT_FOUND', 'Complaint not found.');
-      if (complaint.status === 'WITHDRAWN' || complaint.status === 'REJECTED') {
-        throw new AppError(400, 'CANNOT_BOOST', `Cannot boost a complaint that is ${complaint.status}.`);
-      }
-
-      let updatedFlags = Array.isArray(complaint.riskFlags) ? [...complaint.riskFlags] : [];
-      if (!updatedFlags.includes('PRIORITY_BOOST_24H')) {
-        updatedFlags.push('PRIORITY_BOOST_24H');
-      }
-
-      let updated = complaint;
-      if (typeof prisma.complaint?.update === 'function') {
-        updated = await prisma.complaint.update({
-          where: { id: complaint.id },
-          data: { riskFlags: updatedFlags },
-          include: { evidence: true },
-        });
-      }
-
-      const clientComplaint = formatComplaint(updated);
-      broadcastComplaintUpdated(clientComplaint);
-
-      response.json({
-        data: {
-          complaint: clientComplaint,
-          isBoosted: true,
-          message: 'Priority Boost activated! Your grievance is expedited under the 24h Legal Notice SLA.',
-        },
-      });
     } catch (error) {
       next(error);
     }

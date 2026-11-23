@@ -67,8 +67,6 @@ class RealtimeComplaintService {
         'confidenceLevel': fresh['confidenceLevel'],
         'moderationNotes': fresh['moderationNotes'],
         'merchantResponse': fresh['merchantResponse'],
-        'isBoosted': fresh['isBoosted'] == true ||
-            (fresh['riskFlags'] is List && (fresh['riskFlags'] as List).contains('PRIORITY_BOOST_24H')),
         'complaint': fresh,
       });
       return fresh;

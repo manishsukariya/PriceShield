@@ -6,8 +6,6 @@ import {
   MerchantItem,
   ScanFeedItem,
   DashboardMetrics,
-  ProtectionPlan,
-  PlanStats,
 } from '../types';
 import {
   mockCases,
@@ -37,11 +35,6 @@ let isBackendLive = false;
 let eventSource: EventSource | null = null;
 
 function normalizeBackendComplaint(raw: any): CaseItem {
-  const isBoosted =
-    raw.isBoosted === true ||
-    (Array.isArray(raw.riskFlags) &&
-      (raw.riskFlags.includes('PRIORITY_BOOST_24H') || raw.riskFlags.includes('BOOSTED')));
-
   let rawStatus = (raw.status || 'PENDING').toUpperCase() as CaseStatus;
   if (Array.isArray(raw.riskFlags)) {
     const stageFlag = raw.riskFlags.find((f: string) => f.startsWith('STAGE_'));
@@ -113,8 +106,6 @@ function normalizeBackendComplaint(raw: any): CaseItem {
     consumerName: raw.user?.displayName || 'Registered Consumer',
     consumerEmail: raw.user?.email || 'consumer@priceshield.org',
     consumerPhoneMasked: '+91 98•••• 1234',
-    isBoosted,
-    boostTier: isBoosted ? 'PRIORITY_24H' : 'STANDARD',
   };
 }
 
@@ -230,7 +221,6 @@ export const api = {
     confidenceLevel?: string;
     search?: string;
     venueType?: string;
-    isBoostedOnly?: boolean;
   }): Promise<CaseItem[]> {
     // Attempt backend fetch
     try {
@@ -257,9 +247,6 @@ export const api = {
 
     let list = [...casesStore];
 
-    if (filters?.isBoostedOnly) {
-      list = list.filter((c) => c.isBoosted === true);
-    }
     if (filters?.status && filters.status !== 'ALL') {
       list = list.filter((c) => c.status === filters.status);
     }
@@ -357,49 +344,6 @@ export const api = {
     return updated;
   },
 
-  async boostCase(id: string, isBoosted: boolean, boostTier = 'PRIORITY_24H'): Promise<CaseItem> {
-    try {
-      await fetch(`${API_BASE_URL}/admin/complaints/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': ADMIN_API_KEY,
-        },
-        body: JSON.stringify({ isBoosted, boostTier }),
-      });
-    } catch (err) {
-      console.warn('Backend boost failed, updated local store', err);
-    }
-
-    const index = casesStore.findIndex((c) => c.id === id);
-    if (index === -1) throw new Error('Case not found');
-
-    const updated: CaseItem = {
-      ...casesStore[index],
-      isBoosted,
-      boostTier: isBoosted ? boostTier : 'STANDARD',
-      updatedAt: new Date().toISOString(),
-      timeline: [
-        ...casesStore[index].timeline,
-        {
-          id: `tl-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          actor: 'MODERATOR',
-          actorName: 'Priority Escalation Desk',
-          title: isBoosted ? '⚡ Priority Boost Activated' : 'Priority Boost Concluded',
-          description: isBoosted
-            ? `Assigned to 24h statutory Legal Metrology SLA queue with expedited evidence review.`
-            : `Case returned to standard queue.`,
-          badge: isBoosted ? 'PRIORITY BOOST' : undefined,
-        },
-      ],
-    };
-
-    casesStore[index] = updated;
-    window.dispatchEvent(new CustomEvent('priceshield_case_updated', { detail: updated }));
-    return updated;
-  },
-
   async proposeMerchantSettlement(id: string, amount: number): Promise<CaseItem> {
     try {
       await fetch(`${API_BASE_URL}/admin/complaints/${id}`, {
@@ -444,158 +388,6 @@ export const api = {
     casesStore[index] = updated;
     window.dispatchEvent(new CustomEvent('priceshield_case_updated', { detail: updated }));
     return updated;
-  },
-
-  // --- PLANS & BOOSTS MANAGEMENT ---
-  async getPlans(): Promise<ProtectionPlan[]> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/plans`);
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data?.plans)) {
-          return json.data.plans;
-        }
-      }
-    } catch (_) {}
-
-    return [
-      {
-        id: 'free_shield',
-        name: 'PriceShield Basic',
-        category: 'CONSUMER',
-        price: 0,
-        interval: 'forever',
-        badge: 'Standard',
-        description: 'Essential price overcharge checking and community protection',
-        slaTurnaroundHours: 120,
-        monthlyBoostCredits: 0,
-        features: [
-          'Real-time printed MRP scanner',
-          'Standard 5-7 day grievance moderation',
-          'Consumer forum complaint guidance docket',
-          'Up to 20 product lookups per month',
-        ],
-        isPopular: false,
-        isActive: true,
-      },
-      {
-        id: 'priceshield_pro',
-        name: 'PriceShield Pro',
-        category: 'CONSUMER',
-        price: 49,
-        interval: 'month',
-        badge: 'Most Popular',
-        description: '24-hour priority legal escalation, automated WhatsApp store notice, and verified legal docket',
-        slaTurnaroundHours: 24,
-        monthlyBoostCredits: 3,
-        features: [
-          '⚡ 24h Priority Complaint Escalation (Fast-Track SLA)',
-          '3 Monthly Priority Complaint Boosts',
-          'Advocate-formatted Legal Metrology Notice',
-          'Automated merchant WhatsApp conciliation notice',
-          'Unlimited cloud receipt & proof backups',
-        ],
-        isPopular: true,
-        isActive: true,
-      },
-      {
-        id: 'guardian_pro',
-        name: 'Shield Guardian VIP',
-        category: 'CONSUMER',
-        price: 149,
-        interval: 'month',
-        badge: 'VIP Legal Pack',
-        description: 'Full legal metrology department escalation, direct advocate filing assistance, and legal defense',
-        slaTurnaroundHours: 4,
-        monthlyBoostCredits: 999,
-        features: [
-          '⚡ 4h Expedited Adjudication SLA',
-          'Unlimited Priority Complaint Boosts',
-          'Direct e-Daakhil / NCH consumer court packet filing',
-          'Anti-retaliation legal defense protection coverage',
-          'Personal consumer grievance advocate liaison',
-        ],
-        isPopular: false,
-        isActive: true,
-      },
-      {
-        id: 'verified_merchant',
-        name: 'Verified Retailer Shield',
-        category: 'MERCHANT',
-        price: 499,
-        interval: 'month',
-        badge: 'For Retailers',
-        description: 'Proactive overcharge dispute pre-emption, instant settlement refund escrow, and fair-pricing badge',
-        slaTurnaroundHours: 12,
-        monthlyBoostCredits: 10,
-        features: [
-          'Direct instant dispute conciliation portal',
-          '48h voluntary UPI refund mechanism before public flag',
-          'Fair Pricing Verified Green Badge on store listing',
-          'Real-time packaging mismatch notifications',
-        ],
-        isPopular: false,
-        isActive: true,
-      },
-      {
-        id: 'retail_enterprise',
-        name: 'Retail Enterprise Chain',
-        category: 'MERCHANT',
-        price: 2499,
-        interval: 'month',
-        badge: 'Multi-Store',
-        description: 'Enterprise multi-store price compliance surveillance, POS API sync, and compliance audit reports',
-        slaTurnaroundHours: 2,
-        monthlyBoostCredits: 100,
-        features: [
-          'Multi-store chain surveillance & POS API integration',
-          'Real-time nationwide barcode pricing mismatch alerts',
-          'Dedicated compliance officer support',
-          'Weekly legal metrology audit risk reports',
-        ],
-        isPopular: false,
-        isActive: true,
-      },
-    ];
-  },
-
-  async getPlanStats(): Promise<PlanStats> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/plans/stats`, {
-        headers: { 'x-admin-key': ADMIN_API_KEY },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) return json.data;
-      }
-    } catch (_) {}
-
-    const boosted = casesStore.filter((c) => c.isBoosted).length;
-    return {
-      totalUsers: 1420,
-      activeSubscribers: 108,
-      proSubscribers: 86,
-      guardianSubscribers: 22,
-      boostedComplaintsActive: Math.max(boosted, 14),
-      monthlyRecurringRevenueRupees: 86 * 49 + 22 * 149,
-      slaAdherencePercent: 98.4,
-    };
-  },
-
-  async grantUserPlan(userEmail: string, planId: string): Promise<boolean> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/plans/grant`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': ADMIN_API_KEY,
-        },
-        body: JSON.stringify({ userEmail, planId }),
-      });
-      return res.ok;
-    } catch (_) {
-      return true;
-    }
   },
 
   // --- PRODUCTS CATALOG ---

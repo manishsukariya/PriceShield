@@ -49,7 +49,6 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
               'confidenceLevel': event['confidenceLevel'],
               'moderationNotes': event['moderationNotes'],
               'merchantResponse': event['merchantResponse'],
-              'isBoosted': event['isBoosted'],
             };
 
       setState(() {
@@ -304,9 +303,6 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     final status = _status(item);
     final confidence = item['confidenceLevel']?.toString().toUpperCase();
     final merchantName = item['merchantName']?.toString();
-    final rawFlags = item['riskFlags'];
-    final isBoosted = item['isBoosted'] == true ||
-        (rawFlags is List && (rawFlags.contains('PRIORITY_BOOST_24H') || rawFlags.contains('BOOSTED')));
     final statusColor = status == 'RESOLVED'
         ? PriceShieldColors.success
         : status == 'REJECTED'
@@ -349,10 +345,6 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (isBoosted) ...[
-                    const StatusPill(label: '⚡ BOOSTED', color: Color(0xffD97706)),
-                    const SizedBox(width: 6),
-                  ],
                   StatusPill(label: _friendlyStatus(status), color: statusColor),
                 ]),
                 if (confidence != null && confidence.isNotEmpty) ...[

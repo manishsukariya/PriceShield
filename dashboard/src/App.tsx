@@ -10,7 +10,6 @@ import { ProductsPage } from './pages/ProductsPage';
 import { SubmissionsPage } from './pages/SubmissionsPage';
 import { MerchantsPage } from './pages/MerchantsPage';
 import { LiveScansPage } from './pages/LiveScansPage';
-import { PlansBoostPage } from './pages/PlansBoostPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 
@@ -42,7 +41,6 @@ export const App: React.FC = () => {
               <Route index element={<OverviewPage />} />
               <Route path="cases" element={<CasesPage />} />
               <Route path="cases/:id" element={<CaseDetailPage />} />
-              <Route path="plans" element={<PlansBoostPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="submissions" element={<SubmissionsPage />} />
               <Route path="merchants" element={<MerchantsPage />} />

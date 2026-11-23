@@ -371,24 +371,6 @@ class PriceShieldApiClient {
 
   String get streamUrl => '$_baseUrl/api/v1/complaints/stream';
 
-  Future<Map<String, dynamic>> boostComplaint(String id) =>
-      _requestMap('POST', '/complaints/${Uri.encodeComponent(id)}/boost');
-
-  Future<List<Map<String, dynamic>>> getPlans() async {
-    final res = await _requestEnvelope('GET', '/plans', authenticated: false);
-    final data = res['data'];
-    if (data is Map && data['plans'] is List) {
-      return (data['plans'] as List).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
-    }
-    return [];
-  }
-
-  Future<Map<String, dynamic>> getMyPlan() =>
-      _requestMap('GET', '/plans/my-plan');
-
-  Future<Map<String, dynamic>> subscribePlan(String planId) =>
-      _requestMap('POST', '/plans/subscribe', body: {'planId': planId});
-
   Future<Map<String, dynamic>> _requestMap(
     String method,
     String path, {

@@ -8,7 +8,6 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaints_screen.dart';
 import 'package:priceshield/features/deescalation/services/helpline_service.dart';
 import 'package:priceshield/features/profile/presentation/screens/edit_profile_screen.dart';
-import 'package:priceshield/features/profile/presentation/screens/plans_screen.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 
@@ -273,7 +272,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1),
           ListTile(leading: const Icon(Icons.receipt_long_outlined, color: PriceShieldColors.primary), title: const Text('Complaint history'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen()))),
           const Divider(height: 1),
-          ListTile(leading: const Icon(Icons.bolt_rounded, color: Color(0xff0F9D8A)), title: const Text('Protection Plans & Boosts'), subtitle: const Text('Priority grievance escalation & Legal Metrology SLA', style: TextStyle(fontSize: 11)), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlansScreen()))),
+          ListTile(
+            leading: const Icon(Icons.gavel_rounded, color: PriceShieldColors.primary),
+            title: const Text('Consumer Rights & Laws'),
+            subtitle: const Text('Rule 18(2), Legal Metrology & Jan Vishwas Act', style: TextStyle(fontSize: 11, color: PriceShieldColors.muted)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, '/deescalation'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.phone_in_talk_rounded, color: Color(0xff0284C7)),
+            title: const Text('National Consumer Helpline'),
+            subtitle: const Text('Toll-Free 1915 (Govt of India)', style: TextStyle(fontSize: 11, color: PriceShieldColors.muted)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => HelplineService.callTollFreeHelpline(),
+          ),
         ])),
         const SizedBox(height: 20),
         OutlinedButton.icon(onPressed: (_loading || _deleting) ? null : () async { await authService.logout(); }, icon: const Icon(Icons.logout), label: const Text('Logout'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: Colors.red, side: const BorderSide(color: Colors.red))),

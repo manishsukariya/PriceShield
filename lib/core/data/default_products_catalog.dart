@@ -1,5 +1,10 @@
 // Auto-generated offline catalog of standard Indian FMCG products for instant 0ms lookups.
 const Map<String, Map<String, dynamic>> defaultIndianProductsCatalog = {
+  '8901030779312': {
+    'barcode': '8901030779312',
+    'name': 'Lipton Clear & Light Green Tea (25 Tea Bags)',
+    'mrp': 190.00,
+  },
   '8901262150057': {
     'barcode': '8901262150057',
     'name': "Amul Taaza Homogenised Toned Milk 500ml",

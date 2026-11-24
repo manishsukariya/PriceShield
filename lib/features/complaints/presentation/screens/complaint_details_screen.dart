@@ -10,6 +10,8 @@ import 'package:priceshield/core/services/realtime_complaint_service.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/services/escalation_pack_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 class ComplaintDetailsScreen extends StatefulWidget {
   const ComplaintDetailsScreen({
@@ -298,6 +300,17 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openFullScreenVideo(String videoUrl, String title) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FullScreenVideoViewer(
+          videoUrl: videoUrl,
+          title: title,
         ),
       ),
     );
@@ -736,15 +749,157 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                       ...evidence.whereType<Map>().map((item) {
                         final url = item['url']?.toString() ?? '';
                         final role = item['role']?.toString();
-                        final isImage = url.contains('/image/') ||
-                            url.endsWith('.jpg') ||
-                            url.endsWith('.jpeg') ||
-                            url.endsWith('.png') ||
-                            url.endsWith('.webp') ||
-                            item['mediaType'] == 'IMAGE' ||
-                            item['mediaType'] == 'image';
+                        final mediaType = item['mediaType']?.toString().toUpperCase() ?? '';
+                        final isVideo = role == 'VIDEO_PROOF' ||
+                            mediaType == 'VIDEO' ||
+                            url.contains('/video/') ||
+                            url.endsWith('.mp4') ||
+                            url.endsWith('.mov') ||
+                            url.endsWith('.mkv') ||
+                            url.endsWith('.webm');
+                        final isImage = !isVideo &&
+                            (url.contains('/image/') ||
+                                url.endsWith('.jpg') ||
+                                url.endsWith('.jpeg') ||
+                                url.endsWith('.png') ||
+                                url.endsWith('.webp') ||
+                                mediaType == 'IMAGE');
 
                         if (url.isEmpty) return const SizedBox.shrink();
+
+                        if (isVideo) {
+                          return GestureDetector(
+                            onTap: () => _openFullScreenVideo(url, _roleLabel(role)),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: PriceShieldColors.border),
+                                color: PriceShieldColors.surface,
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 180,
+                                    width: double.infinity,
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xff0B192C),
+                                          Color(0xff1E293B),
+                                        ],
+                                      ),
+                                    ),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.videocam_rounded,
+                                          size: 80,
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                        ),
+                                        Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            color: PriceShieldColors.primary.withValues(alpha: 0.92),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: PriceShieldColors.primary.withValues(alpha: 0.4),
+                                                blurRadius: 16,
+                                                spreadRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.play_arrow_rounded,
+                                            color: Colors.white,
+                                            size: 38,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 10,
+                                          right: 10,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.65),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.play_circle_outline_rounded, color: Colors.white, size: 13),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'VIDEO PROOF',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.videocam_outlined,
+                                          size: 16,
+                                          color: PriceShieldColors.primary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _roleLabel(role),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        const Row(
+                                          children: [
+                                            Icon(
+                                              Icons.play_circle_fill_rounded,
+                                              color: PriceShieldColors.primary,
+                                              size: 14,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Tap to play',
+                                              style: TextStyle(
+                                                color: PriceShieldColors.primary,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
 
                         if (isImage) {
                           return GestureDetector(
@@ -830,7 +985,7 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.videocam_outlined, color: PriceShieldColors.primary),
+                              const Icon(Icons.attachment_rounded, color: PriceShieldColors.primary),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -840,6 +995,10 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                                     fontSize: 13,
                                   ),
                                 ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
                               ),
                             ],
                           ),
@@ -1138,5 +1297,267 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
     } catch (_) {
       return isoString;
     }
+  }
+}
+
+class FullScreenVideoViewer extends StatefulWidget {
+  const FullScreenVideoViewer({
+    super.key,
+    required this.videoUrl,
+    required this.title,
+  });
+
+  final String videoUrl;
+  final String title;
+
+  @override
+  State<FullScreenVideoViewer> createState() => _FullScreenVideoViewerState();
+}
+
+class _FullScreenVideoViewerState extends State<FullScreenVideoViewer> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initController();
+  }
+
+  Future<void> _initController() async {
+    try {
+      final uri = Uri.parse(widget.videoUrl);
+      _controller = VideoPlayerController.networkUrl(uri);
+      await _controller.initialize();
+      if (mounted) {
+        setState(() {
+          _initialized = true;
+        });
+        _controller.play();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_initialized) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  Future<void> _launchInBrowser() async {
+    try {
+      final uri = Uri.parse(widget.videoUrl);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Open in Browser',
+            icon: const Icon(Icons.open_in_new_rounded, color: Colors.white),
+            onPressed: _launchInBrowser,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: _hasError
+              ? Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Colors.redAccent,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Unable to play video in app',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PriceShieldColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: _launchInBrowser,
+                        icon: const Icon(Icons.open_in_browser_rounded),
+                        label: const Text('Open External Player'),
+                      ),
+                    ],
+                  ),
+                )
+              : !_initialized
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: PriceShieldColors.primary),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading video proof...',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: _controller.value.aspectRatio > 0
+                                  ? _controller.value.aspectRatio
+                                  : 16 / 9,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  VideoPlayer(_controller),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      setState(() {
+                                        _controller.value.isPlaying
+                                            ? _controller.pause()
+                                            : _controller.play();
+                                      });
+                                    },
+                                    child: AnimatedOpacity(
+                                      opacity: _controller.value.isPlaying ? 0.0 : 0.85,
+                                      duration: const Duration(milliseconds: 200),
+                                      child: Container(
+                                        width: 72,
+                                        height: 72,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          _controller.value.isPlaying
+                                              ? Icons.pause_rounded
+                                              : Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 48,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        ValueListenableBuilder(
+                          valueListenable: _controller,
+                          builder: (context, VideoPlayerValue value, child) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              color: const Color(0xff111827),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  VideoProgressIndicator(
+                                    _controller,
+                                    allowScrubbing: true,
+                                    colors: const VideoProgressColors(
+                                      playedColor: PriceShieldColors.primary,
+                                      bufferedColor: Colors.white24,
+                                      backgroundColor: Colors.white10,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          value.isPlaying
+                                              ? Icons.pause_rounded
+                                              : Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            value.isPlaying
+                                                ? _controller.pause()
+                                                : _controller.play();
+                                          });
+                                        },
+                                      ),
+                                      Text(
+                                        '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      IconButton(
+                                        tooltip: 'Replay from start',
+                                        icon: const Icon(
+                                          Icons.replay_rounded,
+                                          color: Colors.white70,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          _controller.seekTo(Duration.zero);
+                                          _controller.play();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+        ),
+      ),
+    );
   }
 }

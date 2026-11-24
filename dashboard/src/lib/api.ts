@@ -58,6 +58,29 @@ let merchantsStore: MerchantItem[] = [...mockMerchants];
 let isBackendLive = false;
 let eventSource: EventSource | null = null;
 
+function parseCityAndState(address?: string): { city: string; state: string } {
+  if (!address || typeof address !== 'string' || !address.trim()) {
+    return { city: 'Local Market', state: 'India' };
+  }
+  // Strip 6-digit postal pin codes and trim commas
+  const clean = address.replace(/\b\d{6}\b/g, '').trim();
+  const parts = clean
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p && p.toLowerCase() !== 'india');
+
+  if (parts.length >= 2) {
+    return {
+      city: parts[parts.length - 2],
+      state: parts[parts.length - 1],
+    };
+  }
+  if (parts.length === 1) {
+    return { city: parts[0], state: 'India' };
+  }
+  return { city: 'Local Market', state: 'India' };
+}
+
 function normalizeBackendComplaint(raw: any): CaseItem {
   let rawStatus = (raw.status || 'PENDING').toUpperCase() as CaseStatus;
   if (Array.isArray(raw.riskFlags)) {
@@ -66,6 +89,8 @@ function normalizeBackendComplaint(raw: any): CaseItem {
       rawStatus = stageFlag.replace('STAGE_', '') as CaseStatus;
     }
   }
+
+  const location = parseCityAndState(raw.address);
 
   return {
     id: raw.id,
@@ -85,8 +110,8 @@ function normalizeBackendComplaint(raw: any): CaseItem {
     merchantName: raw.merchantName || 'Retail Store',
     merchantVpa: raw.merchantVpa || undefined,
     storeAddress: raw.address || 'Market Location',
-    city: 'Pune',
-    state: 'Maharashtra',
+    city: location.city,
+    state: location.state,
     latitude: raw.latitude ? Number(raw.latitude) : undefined,
     longitude: raw.longitude ? Number(raw.longitude) : undefined,
     venueType: raw.venueType || 'RETAIL',

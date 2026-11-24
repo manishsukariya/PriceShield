@@ -206,8 +206,11 @@ export const CasesPage: React.FC = () => {
                       <p className="font-bold text-slate-800 dark:text-slate-200 max-w-[180px] truncate">
                         {c.merchantName}
                       </p>
-                      <p className="text-[11px] text-slate-400 max-w-[180px] truncate">
-                        {c.city}, {c.state}
+                      <p
+                        className="text-[11px] text-slate-400 max-w-[180px] truncate"
+                        title={c.storeAddress}
+                      >
+                        {c.city ? `${c.city}${c.state ? `, ${c.state}` : ''}` : c.storeAddress}
                       </p>
                     </td>
 

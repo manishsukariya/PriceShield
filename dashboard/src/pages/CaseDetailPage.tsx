@@ -338,12 +338,27 @@ export const CaseDetailPage: React.FC = () => {
                     onClick={() => setInspectorOpen(true)}
                     className="group relative rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-950 cursor-pointer shadow-xs hover:border-[#0F9D8A] transition-all"
                   >
-                    <div className="aspect-square relative overflow-hidden">
-                      <img
-                        src={ev.url}
-                        alt={ev.role}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      />
+                    <div className="aspect-square relative overflow-hidden bg-black/5 dark:bg-black/30 flex items-center justify-center">
+                      {ev.mediaType === 'VIDEO' || ev.role === 'VIDEO_PROOF' || ev.url?.toLowerCase().endsWith('.mp4') ? (
+                        <div className="relative w-full h-full flex items-center justify-center bg-slate-950">
+                          <video
+                            src={ev.url}
+                            className="w-full h-full object-cover opacity-80"
+                            preload="metadata"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                            <span className="w-10 h-10 rounded-full bg-[#0F9D8A] text-white flex items-center justify-center shadow-lg font-bold">
+                              ▶
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={ev.url}
+                          alt={ev.role}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      )}
                       <div className="absolute top-2 left-2">
                         <Badge variant="secondary" size="sm" className="bg-slate-900/80 text-white border-none backdrop-blur-xs font-mono">
                           {ev.role.replace(/_/g, ' ')}

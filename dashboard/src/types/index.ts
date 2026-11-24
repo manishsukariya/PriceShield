@@ -84,6 +84,8 @@ export interface CaseItem {
   consumerName: string;
   consumerEmail: string;
   consumerPhoneMasked: string;
+  description?: string;
+  consumerTrustScore?: number;
 }
 
 export interface ProductItem {

@@ -79,27 +79,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     _detectedBrandInfo = Gs1IndiaBrandResolver.resolve(widget.barcode);
     final cached = _api.getCachedProduct(widget.barcode);
     if (cached != null) {
-      _nameController.text = cached['name']?.toString() ?? '';
-      _quantityText = cached['quantity']?.toString();
-      final mrp = num.tryParse(cached['mrp']?.toString() ?? '');
-      _catalogBaseMrp = (mrp != null && mrp > 0) ? mrp : null;
-      _mrpController.text =
-          (mrp != null && mrp > 0) ? MrpEnrichmentService.formatMrp(mrp) : '';
-      _isKnownProduct =
-          _nameController.text.isNotEmpty && _mrpController.text.isNotEmpty;
-      final mrpSource = cached['mrpSource']?.toString();
-      _productSource = (mrpSource != null && mrpSource.isNotEmpty)
-          ? mrpSource
-          : cached['source']?.toString();
-      _mrpDisclaimer = cached['mrpDisclaimer']?.toString();
-      _isReferenceEstimate = cached['isReferenceEstimate'] == true || _isKnownProduct;
-      _loading = false;
-      if (mrp == null || mrp <= 0) {
-        _enrichCachedMissingMrp(cached);
+      // Use offline catalog only for instant product name/brand resolution
+      if (_nameController.text.isEmpty) {
+        _nameController.text = cached['name']?.toString() ?? '';
       }
-    } else {
-      _fetchProduct();
+      _quantityText ??= cached['quantity']?.toString();
+    } else if (_detectedBrandInfo != null && _nameController.text.isEmpty) {
+      _nameController.text =
+          '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
     }
+    // Always query live backend first for the active batch MRP
+    _fetchProduct();
   }
 
   Future<void> _enrichCachedMissingMrp(Map<String, dynamic> cached) async {
@@ -251,6 +241,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       if (_detectedBrandInfo != null && _nameController.text.trim().isEmpty) {
         _nameController.text =
             '${_detectedBrandInfo!.brandName} (${_detectedBrandInfo!.category})';
+      }
+      // Offline fallback: Use offline catalog reference estimate if network unreachable
+      final cachedFallback = _api.getCachedProduct(widget.barcode);
+      if (cachedFallback != null) {
+        if (_nameController.text.trim().isEmpty) {
+          _nameController.text = cachedFallback['name']?.toString() ?? '';
+        }
+        _quantityText ??= cachedFallback['quantity']?.toString();
+        final mrp = num.tryParse(cachedFallback['mrp']?.toString() ?? '');
+        if (mrp != null && mrp > 0 && _mrpController.text.trim().isEmpty) {
+          _catalogBaseMrp = mrp;
+          _mrpController.text = MrpEnrichmentService.formatMrp(mrp);
+          _productSource = cachedFallback['mrpSource']?.toString() ??
+              cachedFallback['source']?.toString() ??
+              'offline_reference_catalog';
+          _isReferenceEstimate = true;
+          _isKnownProduct = true;
+        }
       }
       if (_mrpController.text.trim().isEmpty) {
         final inferred = IndianFmcgMrpHeuristics.inferMrp(
@@ -731,18 +739,36 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 decoration: _decoration(
                   'Printed MRP',
                   prefix: '₹ ',
-                  suffixIcon: IconButton(
-                    tooltip: 'Scan MRP from packet',
-                    icon: _readingPackage
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.document_scanner_outlined),
-                    onPressed: _readingPackage
-                        ? null
-                        : () => _pickPackageImage(isFront: false),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: IconButton(
+                      tooltip: 'Scan MRP from packet',
+                      style: IconButton.styleFrom(
+                        backgroundColor: PriceShieldColors.mint,
+                        foregroundColor: PriceShieldColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0xffA7F3D0)),
+                        ),
+                      ),
+                      icon: _readingPackage
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: PriceShieldColors.primary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.camera_alt_rounded,
+                              color: PriceShieldColors.primary,
+                              size: 20,
+                            ),
+                      onPressed: _readingPackage
+                          ? null
+                          : () => _pickPackageImage(isFront: false),
+                    ),
                   ),
                 ),
                 onChanged: (_) => setState(() {}),
@@ -834,13 +860,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: dualBatchVariants.map((variant) {
-                            final isSelected = _mrpController.text.trim() == variant.mrp.toString();
+                            final currentMrp = num.tryParse(_mrpController.text.trim());
+                            final isSelected = currentMrp != null && currentMrp == variant.mrp;
                             return ChoiceChip(
                               label: Text(variant.label),
                               selected: isSelected,
                               onSelected: (_) {
                                 setState(() {
-                                  _mrpController.text = variant.mrp.toString();
+                                  _mrpController.text = MrpEnrichmentService.formatMrp(variant.mrp);
                                 });
                               },
                               selectedColor: const Color(0xff166534),
@@ -868,13 +895,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 children: [
                   ...(_detectedBrandInfo?.suggestedMrps ?? const [10, 15, 20, 25, 30, 40, 50]).map(
                     (val) {
-                      final selected = _mrpController.text == val.toString();
+                      final currentMrp = num.tryParse(_mrpController.text.trim());
+                      final selected = currentMrp != null && currentMrp == val;
                       return ChoiceChip(
                         label: Text('₹$val'),
                         selected: selected,
                         onSelected: (_) {
                           setState(() {
-                            _mrpController.text = val.toString();
+                            _mrpController.text = MrpEnrichmentService.formatMrp(val);
                           });
                         },
                         selectedColor: const Color(0xffE8F8F5),
@@ -929,26 +957,26 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   return amount == null || amount <= 0 ? 'Enter the price charged' : null;
                 },
               ),
-              if (_mrpController.text.trim().isNotEmpty && num.tryParse(_mrpController.text) != null) ...[
+              if (_mrpController.text.trim().isNotEmpty && num.tryParse(_mrpController.text.trim()) != null) ...[
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
                   children: [
                     ActionChip(
-                      label: Text('Exact MRP (₹${_mrpController.text})'),
+                      label: Text('Exact MRP (₹${_mrpController.text.trim()})'),
                       onPressed: () {
-                        setState(() => _chargedPriceController.text = _mrpController.text);
+                        setState(() => _chargedPriceController.text = _mrpController.text.trim());
                       },
                       backgroundColor: const Color(0xffF1F5F9),
                       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xff334155)),
                     ),
                     ActionChip(
-                      label: Text('+₹5 Surcharge (₹${(num.parse(_mrpController.text) + 5).toStringAsFixed(0)})'),
+                      label: Text('+₹5 Surcharge (₹${MrpEnrichmentService.formatMrp(num.parse(_mrpController.text.trim()) + 5)})'),
                       onPressed: () {
                         setState(() {
-                          final base = num.parse(_mrpController.text);
-                          _chargedPriceController.text = (base + 5).toStringAsFixed(0);
+                          final base = num.parse(_mrpController.text.trim());
+                          _chargedPriceController.text = MrpEnrichmentService.formatMrp(base + 5);
                         });
                       },
                       backgroundColor: const Color(0xffFEE2E2),

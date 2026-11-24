@@ -62,14 +62,16 @@ class MrpEnrichmentService {
     return rounded;
   }
 
-  /// Formats an MRP value concisely (e.g. `35.0` -> `35`, `10.5` -> `10.5`).
+  /// Formats an MRP value with standard Indian currency precision.
+  /// Whole rupee values format without decimals (e.g. `35` -> `35`).
+  /// Decimal paise values always format with standard 2 decimal places
+  /// (e.g. `21.50` -> `21.50`, `27.50` -> `27.50`, `14.85` -> `14.85`).
   static String formatMrp(num value) {
     final rounded = (value * 100).roundToDouble() / 100;
     if (rounded == rounded.roundToDouble()) {
       return rounded.round().toString();
     }
-    final fixed = rounded.toStringAsFixed(2);
-    return fixed.endsWith('0') ? fixed.substring(0, fixed.length - 1) : fixed;
+    return rounded.toStringAsFixed(2);
   }
 
   static _ParsedQuantity? _parseQuantityInBaseUnits(String? quantityText) {

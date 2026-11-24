@@ -149,6 +149,7 @@ export const CasesPage: React.FC = () => {
                   <th className="py-3.5 px-4">MRP vs Charged</th>
                   <th className="py-3.5 px-4">Overcharge</th>
                   <th className="py-3.5 px-4">Merchant & Location</th>
+                  <th className="py-3.5 px-4">Complainant</th>
                   <th className="py-3.5 px-4">Evidence Tier</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
@@ -207,6 +208,15 @@ export const CasesPage: React.FC = () => {
                       </p>
                       <p className="text-[11px] text-slate-400 max-w-[180px] truncate">
                         {c.city}, {c.state}
+                      </p>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <p className="font-bold text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
+                        {c.consumerName}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono truncate">
+                        {c.consumerEmail}
                       </p>
                     </td>
 

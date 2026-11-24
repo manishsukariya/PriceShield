@@ -1,8 +1,9 @@
-import React from 'react';
-import { Search, Sun, Moon, Bell, LogOut, ShieldCheck, User } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, Sun, Moon, Bell, LogOut, ShieldCheck, User, Cloud, Server } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/button';
+import { getBackendTarget, setBackendTarget, BackendTarget } from '../../lib/api';
 
 interface TopHeaderProps {
   onOpenSearch: () => void;
@@ -12,6 +13,33 @@ interface TopHeaderProps {
 export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenSearch, collapsed }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const [target, setTarget] = useState<BackendTarget>(getBackendTarget());
+  const [isLive, setIsLive] = useState<boolean>(true);
+
+  useEffect(() => {
+    const handleConnection = (e: any) => {
+      if (typeof e.detail?.isLive === 'boolean') {
+        setIsLive(e.detail.isLive);
+      }
+    };
+    const handleTarget = (e: any) => {
+      if (e.detail?.target) {
+        setTarget(e.detail.target);
+      }
+    };
+
+    window.addEventListener('priceshield_connection_change', handleConnection);
+    window.addEventListener('priceshield_target_change', handleTarget);
+    return () => {
+      window.removeEventListener('priceshield_connection_change', handleConnection);
+      window.removeEventListener('priceshield_target_change', handleTarget);
+    };
+  }, []);
+
+  const handleSwitchTarget = (newTarget: BackendTarget) => {
+    setTarget(newTarget);
+    setBackendTarget(newTarget);
+  };
 
   return (
     <header
@@ -37,16 +65,56 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenSearch, collapsed })
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
+        {/* Backend Target Selector */}
+        <div className="hidden md:flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-medium">
+          <button
+            type="button"
+            onClick={() => handleSwitchTarget('cloud')}
+            title="Connect to Render Cloud Production API"
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+              target === 'cloud'
+                ? 'bg-[#0F9D8A] text-white font-bold shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Cloud className="w-3 h-3" />
+            <span>Render Cloud</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSwitchTarget('local')}
+            title="Connect to Localhost:3000 API"
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+              target === 'local'
+                ? 'bg-[#10233F] text-white font-bold shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Server className="w-3 h-3" />
+            <span>Local 3000</span>
+          </button>
+        </div>
+
         {/* Live SSE / API Connection Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Live Sync Active</span>
+        <div
+          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+            isLive
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`}
+          />
+          <span>{isLive ? 'Live Sync Active' : 'Connecting...'}</span>
         </div>
 
         {/* Fast Regulatory Ticker */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF7F1]/80 dark:bg-[#0F9D8A]/10 border border-[#0F9D8A]/20 text-xs text-[#0A6B5E] dark:text-[#57C7A7] font-semibold">
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF7F1]/80 dark:bg-[#0F9D8A]/10 border border-[#0F9D8A]/20 text-xs text-[#0A6B5E] dark:text-[#57C7A7] font-semibold">
           <ShieldCheck className="w-3.5 h-3.5 text-[#0F9D8A]" />
-          <span>Rule 18(2) LM Act Enforcement Engine</span>
+          <span>Rule 18(2) LM Act Enforcement</span>
         </div>
 
         {/* Theme Toggle */}

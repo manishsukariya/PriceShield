@@ -10,6 +10,23 @@ import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/features/scanner/presentation/screens/product_details_screen.dart';
 
 void main() {
+  group('MrpEnrichmentService.formatMrp decimal precision', () {
+    test('formats whole rupee amounts without decimals', () {
+      expect(MrpEnrichmentService.formatMrp(35), '35');
+      expect(MrpEnrichmentService.formatMrp(35.0), '35');
+      expect(MrpEnrichmentService.formatMrp(10), '10');
+      expect(MrpEnrichmentService.formatMrp(100), '100');
+    });
+
+    test('preserves exact 2 decimal places for paise amounts without chopping trailing zero', () {
+      expect(MrpEnrichmentService.formatMrp(21.5), '21.50');
+      expect(MrpEnrichmentService.formatMrp(21.50), '21.50');
+      expect(MrpEnrichmentService.formatMrp(27.5), '27.50');
+      expect(MrpEnrichmentService.formatMrp(14.85), '14.85');
+      expect(MrpEnrichmentService.formatMrp(0.5), '0.50');
+    });
+  });
+
   group('MrpEnrichmentService.extractMrpFromText', () {
     test('extracts standard MRP formats and textual packet prices', () {
       expect(MrpEnrichmentService.extractMrpFromText('MRP Rs. 20'), 20);
@@ -377,6 +394,84 @@ void main() {
       expect(find.byTooltip('Scan MRP from packet'), findsOneWidget);
       // Britannia GS1 prefix chips are available (first chip ₹5)
       expect(find.text('₹5'), findsOneWidget);
+    });
+
+    testWidgets('queries live backend first even when product exists in offline catalog', (
+      tester,
+    ) async {
+      // 8901262150057 is Amul Taaza 500ml, which has catalog mrp=27.00 pre-cached.
+      // Backend returns updated batch MRP 27.50.
+      var backendQueried = false;
+      final apiClient = PriceShieldApiClient(
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/products/8901262150057')) {
+            backendQueried = true;
+            return http.Response(
+              jsonEncode({
+                'data': {
+                  'id': 'amul-taaza-new-batch',
+                  'barcode': '8901262150057',
+                  'name': 'Amul Taaza Homogenised Toned Milk 500ml',
+                  'mrp': '27.50',
+                  'source': 'catalog_db',
+                },
+              }),
+              200,
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+        tokenProvider: () async => null,
+      );
+
+      final enrichment = MrpEnrichmentService(
+        client: MockClient((_) async => http.Response('{}', 404)),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProductDetailsScreen(
+            barcode: '8901262150057',
+            apiClient: apiClient,
+            enrichmentService: enrichment,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(backendQueried, isTrue);
+      expect(find.text('27.50'), findsOneWidget);
+    });
+
+    testWidgets('falls back to offline catalog reference MRP when backend is unreachable', (
+      tester,
+    ) async {
+      final apiClient = PriceShieldApiClient(
+        client: MockClient((request) async {
+          // Simulate network failure / server offline
+          throw http.ClientException('Connection refused');
+        }),
+        tokenProvider: () async => null,
+      );
+
+      final enrichment = MrpEnrichmentService(
+        client: MockClient((_) async => http.Response('{}', 404)),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProductDetailsScreen(
+            barcode: '8901262150057',
+            apiClient: apiClient,
+            enrichmentService: enrichment,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Offline catalog default for Amul Taaza 500ml is 27.00 -> '27'
+      expect(find.text('27'), findsOneWidget);
+      expect(find.textContaining('Amul Taaza Homogenised Toned Milk 500ml'), findsOneWidget);
     });
   });
 }

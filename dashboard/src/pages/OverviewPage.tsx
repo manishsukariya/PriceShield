@@ -51,12 +51,17 @@ export const OverviewPage: React.FC = () => {
     };
     loadData();
 
+    window.addEventListener('priceshield_case_updated', loadData);
+
     // Polling simulation for live scans
     const interval = setInterval(async () => {
       const scans = await api.getLiveScans();
       setLiveScans(scans);
     }, 12000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('priceshield_case_updated', loadData);
+    };
   }, []);
 
   const chartData = [

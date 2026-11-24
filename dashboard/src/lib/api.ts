@@ -16,11 +16,35 @@ import {
   mockDashboardMetrics,
 } from './mockData';
 
-const API_BASE_URL =
-  import.meta.env.VITE_PRICESHIELD_API_URL ||
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000/api/v1'
-    : 'https://priceshield-r4v5.onrender.com/api/v1');
+export const DEFAULT_CLOUD_URL = 'https://priceshield-r4v5.onrender.com/api/v1';
+export const DEFAULT_LOCAL_URL = 'http://localhost:3000/api/v1';
+
+export type BackendTarget = 'cloud' | 'local';
+
+export function getBackendTarget(): BackendTarget {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('priceshield_backend_target');
+    if (stored === 'cloud' || stored === 'local') return stored;
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'cloud';
+    }
+  }
+  return 'cloud';
+}
+
+export function getApiBaseUrl(): string {
+  const target = getBackendTarget();
+  if (target === 'cloud') return DEFAULT_CLOUD_URL;
+  return import.meta.env.VITE_PRICESHIELD_API_URL || DEFAULT_LOCAL_URL;
+}
+
+export function setBackendTarget(target: BackendTarget) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('priceshield_backend_target', target);
+    initRealtimeEventSource(true);
+    window.dispatchEvent(new CustomEvent('priceshield_target_change', { detail: { target } }));
+  }
+}
 
 const ADMIN_API_KEY =
   import.meta.env.VITE_ADMIN_MODERATION_KEY || 'ps_admin_live_99a8b7c6d5e4';
@@ -103,18 +127,28 @@ function normalizeBackendComplaint(raw: any): CaseItem {
     ],
     moderatorNotes: raw.moderationNotes || undefined,
     merchantResponse: raw.merchantResponse || undefined,
-    consumerName: raw.user?.displayName || 'Registered Consumer',
-    consumerEmail: raw.user?.email || 'consumer@priceshield.org',
-    consumerPhoneMasked: '+91 98•••• 1234',
+    consumerName: raw.user?.displayName || (raw.user?.email ? raw.user.email.split('@')[0] : 'Registered Citizen'),
+    consumerEmail: raw.user?.email || 'citizen@priceshield.org',
+    consumerPhoneMasked: raw.user?.mobile || (raw.utrNumber ? `+91 98••• •${raw.id.slice(-4)}` : '+91 98•••• 4521'),
+    description: raw.description || undefined,
+    consumerTrustScore: raw.user?.trustScore ?? 85,
   };
 }
 
 // Start Server-Sent Events (SSE) listener for live dashboard synchronization
-export function initRealtimeEventSource() {
-  if (typeof window === 'undefined' || eventSource) return;
+export function initRealtimeEventSource(forceReconnect = false) {
+  if (typeof window === 'undefined') return;
+  if (eventSource && !forceReconnect) return;
+
+  if (eventSource) {
+    try {
+      eventSource.close();
+    } catch (_) {}
+    eventSource = null;
+  }
 
   try {
-    const streamUrl = `${API_BASE_URL}/complaints/stream?adminKey=${encodeURIComponent(ADMIN_API_KEY)}`;
+    const streamUrl = `${getApiBaseUrl()}/complaints/stream?adminKey=${encodeURIComponent(ADMIN_API_KEY)}`;
     eventSource = new EventSource(streamUrl);
 
     eventSource.onopen = () => {
@@ -178,13 +212,13 @@ if (typeof window !== 'undefined') {
 
 export const api = {
   getBackendStatus(): { isLive: boolean; apiUrl: string } {
-    return { isLive: isBackendLive, apiUrl: API_BASE_URL };
+    return { isLive: isBackendLive, apiUrl: getApiBaseUrl() };
   },
 
   // --- METRICS ---
   async getMetrics(): Promise<DashboardMetrics> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/metrics`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/metrics`, {
         headers: { 'x-admin-key': ADMIN_API_KEY },
       });
       if (res.ok) {
@@ -225,7 +259,7 @@ export const api = {
     // Attempt backend fetch
     try {
       const query = new URLSearchParams({ status: 'ALL', limit: '100' });
-      const res = await fetch(`${API_BASE_URL}/admin/complaints?${query}`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/complaints?${query}`, {
         headers: { 'x-admin-key': ADMIN_API_KEY },
       });
       if (res.ok) {
@@ -278,7 +312,7 @@ export const api = {
 
     // Try fetching directly from backend
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/complaints?status=ALL&limit=100`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/complaints?status=ALL&limit=100`, {
         headers: { 'x-admin-key': ADMIN_API_KEY },
       });
       if (res.ok) {
@@ -304,7 +338,7 @@ export const api = {
   ): Promise<CaseItem> {
     // Send to backend
     try {
-      await fetch(`${API_BASE_URL}/admin/complaints/${id}`, {
+      await fetch(`${getApiBaseUrl()}/admin/complaints/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -346,7 +380,7 @@ export const api = {
 
   async proposeMerchantSettlement(id: string, amount: number): Promise<CaseItem> {
     try {
-      await fetch(`${API_BASE_URL}/admin/complaints/${id}`, {
+      await fetch(`${getApiBaseUrl()}/admin/complaints/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -395,7 +429,7 @@ export const api = {
     try {
       const q = new URLSearchParams({ limit: '100' });
       if (search && search.trim()) q.set('search', search.trim());
-      const res = await fetch(`${API_BASE_URL}/admin/products?${q}`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/products?${q}`, {
         headers: { 'x-admin-key': ADMIN_API_KEY },
       });
       if (res.ok) {
@@ -439,7 +473,7 @@ export const api = {
 
   async addProduct(product: Omit<ProductItem, 'id' | 'createdAt' | 'updatedAt' | 'verifiedScansCount'>): Promise<ProductItem> {
     try {
-      await fetch(`${API_BASE_URL}/admin/products`, {
+      await fetch(`${getApiBaseUrl()}/admin/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -466,7 +500,7 @@ export const api = {
 
   async updateProductMrp(id: string, newMrp: number): Promise<ProductItem> {
     try {
-      await fetch(`${API_BASE_URL}/admin/products/${id}`, {
+      await fetch(`${getApiBaseUrl()}/admin/products/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -492,7 +526,7 @@ export const api = {
   async getSubmissions(status?: string): Promise<CommunitySubmissionItem[]> {
     try {
       const q = new URLSearchParams({ status: status || 'ALL', limit: '100' });
-      const res = await fetch(`${API_BASE_URL}/admin/product-submissions?${q}`, {
+      const res = await fetch(`${getApiBaseUrl()}/admin/product-submissions?${q}`, {
         headers: { 'x-admin-key': ADMIN_API_KEY },
       });
       if (res.ok) {
@@ -531,7 +565,7 @@ export const api = {
 
   async reviewSubmission(id: string, action: 'APPROVE' | 'REJECT', finalMrp?: number): Promise<CommunitySubmissionItem> {
     try {
-      await fetch(`${API_BASE_URL}/admin/product-submissions/${id}`, {
+      await fetch(`${getApiBaseUrl()}/admin/product-submissions/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

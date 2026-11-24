@@ -232,20 +232,64 @@ export function formatProductName(product, barcode) {
   return displayName.slice(0, 255);
 }
 
+export function isIndianCurrency(currency) {
+  if (!currency) return false;
+  const clean = String(currency).trim().toUpperCase();
+  return clean === 'INR' || clean === '₹' || clean === 'RS' || clean === 'RS.' || clean === 'RUPEE' || clean === 'RUPEES';
+}
+
+export function hasForeignCurrency(text) {
+  if (!text) return false;
+  return /[$€£¥₩₽₫฿]|\b(?:USD|EUR|GBP|AUD|CAD|SGD|AED|JPY|CNY|CHF|NZD|BRL|ZAR|RUB|THB)\b/i.test(String(text));
+}
+
 export function extractProductMrp(product) {
-  // 1. Direct numeric price fields (including embedded Open Prices fields)
+  if (!product || typeof product !== 'object') return 0.0;
+
+  const topCurrency = product.currency || product.currency_code || product.price_currency || product.price_currency_code;
+  if (topCurrency && (!isIndianCurrency(topCurrency) || hasForeignCurrency(topCurrency))) {
+    // Explicit foreign currency declared on product (e.g. EUR, USD). Never treat as Indian MRP.
+    return 0.0;
+  }
+
+  // 1. Direct numeric price fields in embedded prices array (strictly INR)
+  if (Array.isArray(product.prices)) {
+    for (const item of product.prices) {
+      if (!item || typeof item !== 'object') continue;
+      const itemCurrency = item.currency || item.currency_code;
+      if (itemCurrency) {
+        if (!isIndianCurrency(itemCurrency) || hasForeignCurrency(itemCurrency)) {
+          continue;
+        }
+      } else if (topCurrency && !isIndianCurrency(topCurrency)) {
+        continue;
+      }
+      const rawItemPrice =
+        item.price_without_discount ??
+        item.price ??
+        item.price_per_unit ??
+        item.amount;
+      if (rawItemPrice != null && !hasForeignCurrency(rawItemPrice)) {
+        const parsed = typeof rawItemPrice === 'number'
+          ? rawItemPrice
+          : parseFloat(String(rawItemPrice).replace(/[^0-9.]/g, ''));
+        const rounded = roundMrp(parsed);
+        if (rounded > 0) {
+          return rounded;
+        }
+      }
+    }
+  }
+
+  // 2. Direct numeric price fields on the product object
   const raw =
     product.price_without_discount ??
     product.price ??
     product.mrp ??
     product.product_mrp ??
-    product.price_per_item ??
-    product.prices?.[0]?.price_without_discount ??
-    product.prices?.[0]?.price ??
-    product.prices?.[0]?.price_per_unit ??
-    product.prices?.[0]?.amount;
+    product.price_per_item;
 
-  if (raw != null) {
+  if (raw != null && !hasForeignCurrency(raw)) {
     const parsed = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.]/g, ''));
     const rounded = roundMrp(parsed);
     if (rounded > 0) {
@@ -253,7 +297,7 @@ export function extractProductMrp(product) {
     }
   }
 
-  // 2. Infer MRP from textual names, labels, or packaging fields
+  // 3. Infer MRP from textual names, labels, or packaging fields
   const candidateTexts = [
     product.packaging_text_en,
     product.packaging_text,
@@ -266,6 +310,9 @@ export function extractProductMrp(product) {
   ].filter(Boolean);
 
   for (const text of candidateTexts) {
+    if (hasForeignCurrency(text) && !/\b(?:INR|₹|Rs\.?)\b/i.test(text)) {
+      continue;
+    }
     const extracted = extractMrpFromText(String(text), { quantityText: product.quantity });
     if (extracted > 0) {
       return extracted;

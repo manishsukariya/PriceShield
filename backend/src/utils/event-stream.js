@@ -99,7 +99,7 @@ export function broadcastComplaintUpdated(complaint) {
     merchantResponse: complaint.merchantResponse,
     updatedAt: complaint.updatedAt || new Date().toISOString(),
     complaint,
-  }, { userId: complaint.userId });
+  });
 }
 
 /**

@@ -132,6 +132,30 @@ describe('Open Food Facts formatting and extraction', () => {
     expect(extractProductMrp({})).toBe(0.0);
   });
 
+  it('strictly validates currency is INR before treating price fields as Indian MRP', () => {
+    // Foreign currencies on top-level product must be rejected
+    expect(extractProductMrp({ price: 3.99, currency: 'EUR' })).toBe(0.0);
+    expect(extractProductMrp({ price: 4.50, currency: 'USD' })).toBe(0.0);
+    expect(extractProductMrp({ price: 2.20, currency: 'GBP' })).toBe(0.0);
+    expect(extractProductMrp({ price: 50.00, currency: 'INR' })).toBe(50.0);
+
+    // Foreign prices in prices array must be rejected, and INR prices preferred
+    expect(extractProductMrp({ prices: [{ price: 3.50, currency: 'EUR' }] })).toBe(0.0);
+    expect(
+      extractProductMrp({
+        prices: [
+          { price: 3.50, currency: 'EUR' },
+          { price: 65.0, currency: 'INR' },
+        ],
+      }),
+    ).toBe(65.0);
+
+    // Foreign currency symbol in mrp string must be rejected
+    expect(extractProductMrp({ mrp: '€ 4.50' })).toBe(0.0);
+    expect(extractProductMrp({ mrp: '$ 12.99' })).toBe(0.0);
+    expect(extractProductMrp({ mrp: '£ 2.99' })).toBe(0.0);
+  });
+
   it('infers MRP from textual name or packaging when direct price field is absent', () => {
     expect(extractProductMrp({ product_name: 'Kurkure Masala Munch Rs. 20' })).toBe(20.0);
     expect(extractProductMrp({ product_name: 'Lay\'s India\'s Magic Masala 10/-' })).toBe(10.0);

@@ -12,6 +12,7 @@ import 'package:priceshield/core/services/mrp_enrichment_service.dart';
 import 'package:priceshield/core/services/priceshield_api_client.dart';
 import 'package:priceshield/core/theme/app_theme.dart';
 import 'package:priceshield/core/widgets/app_ui.dart';
+import 'package:priceshield/features/scanner/models/terrain_context.dart';
 import 'package:priceshield/features/scanner/presentation/screens/scan_result_screen.dart';
 import 'package:priceshield/features/scanner/services/packaging_compliance_service.dart';
 
@@ -58,6 +59,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _submittingProduct = false;
   bool _isStickerFlagged = false;
   String _venueType = 'RETAIL';
+  TerrainType _terrainType = TerrainType.plains;
+  ItemFormType _itemFormType = ItemFormType.sealedPack;
   num? _catalogBaseMrp;
   num? _extractedOcrMrp;
 
@@ -326,6 +329,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           complianceResult: compliance.hasViolation ? compliance : null,
           venueType: _venueType,
           isStickerFlagged: _isStickerFlagged,
+          terrainType: _terrainType,
+          itemFormType: _itemFormType,
         ),
       ),
     );
@@ -1169,6 +1174,313 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Expanded(
                         child: Text(
                           '⚖️ Supreme Court Ruling (FHRAI 2017): Seated restaurants providing table service & ambiance may legally charge above MRP. Over-the-counter takeaways, railway stalls, and kiranas cannot.',
+                          style: TextStyle(fontSize: 11, color: Color(0xff92400E), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Item Form / Preparation Selector
+              const SizedBox(height: 18),
+              const Text(
+                'Item Form / Preparation',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: PriceShieldColors.navy,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _itemFormType = ItemFormType.sealedPack),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _itemFormType == ItemFormType.sealedPack ? PriceShieldColors.mint : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _itemFormType == ItemFormType.sealedPack ? PriceShieldColors.primary : const Color(0xffE2E8F0),
+                            width: _itemFormType == ItemFormType.sealedPack ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              color: _itemFormType == ItemFormType.sealedPack ? PriceShieldColors.primary : const Color(0xff64748B),
+                              size: 20,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '📦 Sealed Pack',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _itemFormType == ItemFormType.sealedPack ? PriceShieldColors.navy : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Packaged MRP strictly applies',
+                              style: TextStyle(fontSize: 10, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _itemFormType = ItemFormType.cookedDhaba),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _itemFormType == ItemFormType.cookedDhaba ? const Color(0xffFEF3C7) : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _itemFormType == ItemFormType.cookedDhaba ? const Color(0xffD97706) : const Color(0xffE2E8F0),
+                            width: _itemFormType == ItemFormType.cookedDhaba ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.restaurant_rounded,
+                              color: _itemFormType == ItemFormType.cookedDhaba ? const Color(0xffB45309) : const Color(0xff64748B),
+                              size: 20,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🍜 Cooked / Served Meal',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _itemFormType == ItemFormType.cookedDhaba ? const Color(0xff92400E) : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Exempt from packaged MRP',
+                              style: TextStyle(fontSize: 10, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_itemFormType == ItemFormType.cookedDhaba) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffFDE68A)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: Color(0xffD97706), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '🍜 Supreme Court FHRAI (2017): Hot food prepared and served at stalls or high altitude dhabas (cooked Maggi, tea, parathas) involves cooking fuel, transport, and preparation service, and is legally exempt from packaged MRP limits.',
+                          style: TextStyle(fontSize: 11, color: Color(0xff92400E), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Geography & Mountain Terrain Selector
+              const SizedBox(height: 18),
+              const Text(
+                'Geography & Logistics Context',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: PriceShieldColors.navy,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _terrainType = TerrainType.plains),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _terrainType == TerrainType.plains ? PriceShieldColors.mint : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _terrainType == TerrainType.plains ? PriceShieldColors.primary : const Color(0xffE2E8F0),
+                            width: _terrainType == TerrainType.plains ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.location_city_rounded,
+                              color: _terrainType == TerrainType.plains ? PriceShieldColors.primary : const Color(0xff64748B),
+                              size: 18,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🏙️ Plains',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _terrainType == TerrainType.plains ? PriceShieldColors.navy : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Standard MRP',
+                              style: TextStyle(fontSize: 9, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _terrainType = TerrainType.motorableHill),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _terrainType == TerrainType.motorableHill ? const Color(0xffEFF6FF) : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _terrainType == TerrainType.motorableHill ? const Color(0xff2563EB) : const Color(0xffE2E8F0),
+                            width: _terrainType == TerrainType.motorableHill ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.directions_car_rounded,
+                              color: _terrainType == TerrainType.motorableHill ? const Color(0xff2563EB) : const Color(0xff64748B),
+                              size: 18,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🚗 Hill Station',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _terrainType == TerrainType.motorableHill ? const Color(0xff1E40AF) : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Road Connected',
+                              style: TextStyle(fontSize: 9, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _terrainType = TerrainType.remoteTrek),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _terrainType == TerrainType.remoteTrek ? const Color(0xffFEF3C7) : const Color(0xffF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _terrainType == TerrainType.remoteTrek ? const Color(0xffD97706) : const Color(0xffE2E8F0),
+                            width: _terrainType == TerrainType.remoteTrek ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.terrain_rounded,
+                              color: _terrainType == TerrainType.remoteTrek ? const Color(0xffB45309) : const Color(0xff64748B),
+                              size: 18,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🐴 High Trek',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _terrainType == TerrainType.remoteTrek ? const Color(0xff92400E) : const Color(0xff475569),
+                              ),
+                            ),
+                            const Text(
+                              'Mule / Porter',
+                              style: TextStyle(fontSize: 9, color: Color(0xff64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_terrainType == TerrainType.motorableHill) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffBFDBFE)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: Color(0xff1D4ED8), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '🚗 Motorable Hill Station (Shimla, Manali, Nainital): Delivery trucks supply goods directly to the market. Overcharging claiming "transport freight" is an illegal surcharge under Rule 18(2).',
+                          style: TextStyle(fontSize: 11, color: Color(0xff1E40AF), height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_terrainType == TerrainType.remoteTrek) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xffFDE68A)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.terrain_rounded, color: Color(0xffD97706), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '🏔️ Remote Mountain Trek (Kedarnath, Amarnath, High Passes): Goods are carried on foot/mules. Standard porterage (+₹5 to ₹10) is allowed under District Magistrate (DM) / Shrine Board Approved Rate Lists. Egregious price gouging (e.g. ₹20 bottle sold for ₹60–₹100) is prohibited.',
                           style: TextStyle(fontSize: 11, color: Color(0xff92400E), height: 1.35),
                         ),
                       ),

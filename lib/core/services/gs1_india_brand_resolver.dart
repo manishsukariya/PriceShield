@@ -23,6 +23,12 @@ class Gs1IndiaBrandResolver {
   const Gs1IndiaBrandResolver._();
 
   static const Map<String, Gs1BrandInfo> _manufacturerPrefixes = {
+    '8904417': Gs1BrandInfo(
+      brandName: 'Aqualogica / Mamaearth (Honasa)',
+      company: 'Honasa Consumer Ltd',
+      category: 'Personal Care & Sunscreen',
+      suggestedMrps: [299, 399, 499, 599, 699],
+    ),
     // Top Dairy & Regional Cooperatives
     '8901262': Gs1BrandInfo(
       brandName: 'Amul',
@@ -186,6 +192,12 @@ class Gs1IndiaBrandResolver {
       category: 'FMCG & Tea/Beverages',
       suggestedMrps: [10, 20, 30, 50, 75],
     ),
+    '8909106': Gs1BrandInfo(
+      brandName: "Pond's / HUL",
+      company: 'Hindustan Unilever Limited',
+      category: 'Personal Care & Sunscreen Powder',
+      suggestedMrps: [117, 120, 125, 150],
+    ),
     '8901088': Gs1BrandInfo(
       brandName: 'Marico (Saffola / Parachute)',
       company: 'Marico Limited',
@@ -203,6 +215,138 @@ class Gs1IndiaBrandResolver {
       company: 'Patanjali Ayurved Ltd',
       category: 'Ayurvedic Food & Groceries',
       suggestedMrps: [10, 20, 35, 50],
+    ),
+    '8901207': Gs1BrandInfo(
+      brandName: 'Godrej (Cinthol / Goodknight / Hit)',
+      company: 'Godrej Consumer Products Ltd',
+      category: 'Soaps & Insecticides',
+      suggestedMrps: [10, 20, 35, 50, 75],
+    ),
+    '8901314': Gs1BrandInfo(
+      brandName: 'Colgate',
+      company: 'Colgate-Palmolive (India) Ltd',
+      category: 'Oral Care & Toothpaste',
+      suggestedMrps: [10, 20, 35, 55, 99],
+    ),
+    '8901526': Gs1BrandInfo(
+      brandName: 'Emami (BoroPlus / Navratna / Zandu)',
+      company: 'Emami Limited',
+      category: 'Personal Care & Healthcare',
+      suggestedMrps: [10, 20, 35, 60, 99],
+    ),
+    '8901027': Gs1BrandInfo(
+      brandName: 'Cadbury / Mondelez (Dairy Milk / Oreo)',
+      company: 'Mondelez India Foods Pvt Ltd',
+      category: 'Chocolates & Confectionery',
+      suggestedMrps: [5, 10, 20, 40, 80],
+    ),
+    '8901042': Gs1BrandInfo(
+      brandName: 'Reckitt (Dettol / Harpic / Lizol)',
+      company: 'Reckitt Benckiser (India) Pvt Ltd',
+      category: 'Antiseptic & Home Care',
+      suggestedMrps: [10, 25, 40, 70, 110],
+    ),
+    '8901012': Gs1BrandInfo(
+      brandName: 'Horlicks / Boost',
+      company: 'Hindustan Unilever Limited',
+      category: 'Health Food Drinks',
+      suggestedMrps: [10, 30, 60, 120, 250],
+    ),
+    '8906002': Gs1BrandInfo(
+      brandName: 'Wipro (Santoor / Yardley)',
+      company: 'Wipro Consumer Care',
+      category: 'Soaps & Personal Wash',
+      suggestedMrps: [10, 20, 35, 55, 75],
+    ),
+    '8901072': Gs1BrandInfo(
+      brandName: 'P&G (Gillette / Oral-B / Whisper / Pantene)',
+      company: 'Procter & Gamble India',
+      category: 'Personal Care & Hygiene',
+      suggestedMrps: [15, 25, 45, 90, 150],
+    ),
+    '8901138': Gs1BrandInfo(
+      brandName: 'Tata Consumer (Tata Salt / Tata Tea / Sampann)',
+      company: 'Tata Consumer Products Ltd',
+      category: 'Tea, Salt & Staples',
+      suggestedMrps: [10, 28, 50, 95, 140],
+    ),
+    '8901537': Gs1BrandInfo(
+      brandName: 'LT Foods (Daawat Basmati Rice)',
+      company: 'LT Foods Limited',
+      category: 'Packaged Rice & Grains',
+      suggestedMrps: [110, 160, 280, 550],
+    ),
+    '8901425': Gs1BrandInfo(
+      brandName: 'Adani Wilmar (Fortune Oil / Atta)',
+      company: 'Adani Wilmar Limited',
+      category: 'Edible Oils & Wheat Atta',
+      suggestedMrps: [90, 140, 180, 350],
+    ),
+    '8901052': Gs1BrandInfo(
+      brandName: "Johnson's / Clean & Clear",
+      company: 'Kenvue / Johnson & Johnson',
+      category: 'Baby Care & Skincare',
+      suggestedMrps: [45, 75, 120, 180],
+    ),
+    '8901131': Gs1BrandInfo(
+      brandName: 'Nivea',
+      company: 'Nivea India Pvt Ltd',
+      category: 'Skin & Body Care',
+      suggestedMrps: [60, 120, 199, 299],
+    ),
+    '8902519': Gs1BrandInfo(
+      brandName: "L'Oréal / Garnier",
+      company: "L'Oréal India Pvt Ltd",
+      category: 'Hair & Skin Care',
+      suggestedMrps: [99, 149, 199, 299, 499],
+    ),
+    '8904047': Gs1BrandInfo(
+      brandName: 'Himalaya',
+      company: 'Himalaya Wellness Company',
+      category: 'Face Wash & Ayurvedic Care',
+      suggestedMrps: [45, 75, 120, 180, 240],
+    ),
+    '8904109': Gs1BrandInfo(
+      brandName: 'CavinKare (Chik / Meera / Nyle)',
+      company: 'CavinKare Pvt Ltd',
+      category: 'Hair Care & Personal Care',
+      suggestedMrps: [10, 20, 45, 85, 140],
+    ),
+    '8904245': Gs1BrandInfo(
+      brandName: 'Nykaa',
+      company: 'FSN E-Commerce Ventures',
+      category: 'Cosmetics & Beauty',
+      suggestedMrps: [199, 299, 399, 499],
+    ),
+    '8904336': Gs1BrandInfo(
+      brandName: 'WOW Skin Science',
+      company: 'Fit & Glow Healthcare',
+      category: 'Hair & Skincare',
+      suggestedMrps: [199, 299, 399, 499],
+    ),
+    '8904314': Gs1BrandInfo(
+      brandName: 'Plum Goodness',
+      company: 'Pureplay Skin Sciences',
+      category: 'Vegan Skincare',
+      suggestedMrps: [199, 299, 399, 499],
+    ),
+    '8904227': Gs1BrandInfo(
+      brandName: 'SUGAR Cosmetics',
+      company: 'Vellvette Lifestyle',
+      category: 'Cosmetics & Makeup',
+      suggestedMrps: [199, 299, 499, 699],
+    ),
+    '8904265': Gs1BrandInfo(
+      brandName: 'mCaffeine',
+      company: 'PEP Technologies',
+      category: 'Caffeine Personal Care',
+      suggestedMrps: [199, 299, 399, 499],
+    ),
+    '8904288': Gs1BrandInfo(
+      brandName: 'Minimalist',
+      company: 'Uprising Science',
+      category: 'Skincare & Sunscreen',
+      suggestedMrps: [299, 399, 499, 599, 699],
     ),
   };
 

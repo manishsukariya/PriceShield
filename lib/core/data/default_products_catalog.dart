@@ -1,5 +1,20 @@
 // Auto-generated offline catalog of standard Indian FMCG products for instant 0ms lookups.
 const Map<String, Map<String, dynamic>> defaultIndianProductsCatalog = {
+  '8909106057517': {
+    'barcode': '8909106057517',
+    'name': "Pond's Sandal Natural Sunscreen Radiance Powder (80g)",
+    'mrp': 135.00,
+  },
+  '8909106057517': {
+    'barcode': '8909106057517',
+    'name': "Pond's Sandal Natural Sunscreen Radiance Powder (80g)",
+    'mrp': 135.00,
+  },
+  '8904417306224': {
+    'barcode': '8904417306224',
+    'name': 'Aqualogica Glow+ Dewy Sunscreen (80g)',
+    'mrp': 599.00,
+  },
   '8901030779312': {
     'barcode': '8901030779312',
     'name': 'Lipton Clear & Light Green Tea (25 Tea Bags)',

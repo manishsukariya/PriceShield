@@ -5,6 +5,7 @@ import { AppError } from '../../middleware/errors.js';
 import { validate } from '../../middleware/validate.js';
 import { pageResult, parseCursor, parseLimit } from '../../utils/query.js';
 import { fetchFromOpenFoodFacts } from './open-food-facts.js';
+import { resolveGs1IndiaBrand } from './gs1-india-resolver.js';
 
 const money = z.coerce.number().positive().max(99999999.99);
 
@@ -90,11 +91,22 @@ export function productRoutes({ authenticate, authenticateOptional, prisma, fetc
         throw new AppError(400, 'VALIDATION_ERROR', 'barcode must contain between 1 and 128 characters.');
       }
 
+      const isPlaceholder = (name) => !name || /^Product\s+\d+$/i.test(name.trim());
+      const isSuspectOcrMrp = (mrp) => {
+        const n = Number(mrp);
+        return n >= 7000 && n <= 7999 && (n % 100 === 99 || n % 100 === 0 || n % 100 === 50);
+      };
+
       // 1. Fast local database lookup (indexed by unique barcode).
-      // Only treat rows with a positive MRP as complete; rows cached earlier
-      // with mrp <= 0 self-heal via OFF image OCR, Open Prices, or reviewed submissions.
+      // Only treat rows with a positive MRP and non-placeholder name as complete; rows cached earlier
+      // with mrp <= 0, placeholder names, or suspect OCR artifacts self-heal via OFF/GS1/OCR.
       const localProduct = await prisma.product.findUnique({ where: { barcode } });
-      if (localProduct && Number(localProduct.mrp) > 0) {
+      if (
+        localProduct &&
+        Number(localProduct.mrp) > 0 &&
+        !isPlaceholder(localProduct.name) &&
+        !isSuspectOcrMrp(localProduct.mrp)
+      ) {
         return response.json({
           data: {
             ...localProduct,
@@ -126,11 +138,30 @@ export function productRoutes({ authenticate, authenticateOptional, prisma, fetc
           }
         }
 
-        const resolvedName = localProduct?.name || offProduct.name;
+        // Guard against OCR ₹-to-7 artifact in resolved prices (e.g. 7599 -> 599)
+        if (isSuspectOcrMrp(resolvedMrp)) {
+          const stripped = resolvedMrp - 7000;
+          if (stripped >= 100 && stripped <= 999) {
+            resolvedMrp = stripped;
+          }
+        }
+
+        let resolvedName = localProduct?.name && !isPlaceholder(localProduct.name)
+          ? localProduct.name
+          : offProduct.name;
+        if (isPlaceholder(resolvedName)) {
+          const gs1 = resolveGs1IndiaBrand(barcode);
+          if (gs1) {
+            resolvedName = `${gs1.brandName} (${gs1.category})`;
+          }
+        }
+
         let savedProduct;
         try {
           const existingPositiveMrp =
-            localProduct && Number(localProduct.mrp) > 0 ? Number(localProduct.mrp) : 0;
+            localProduct && Number(localProduct.mrp) > 0 && !isSuspectOcrMrp(localProduct.mrp)
+              ? Number(localProduct.mrp)
+              : 0;
           const persistedMrp = existingPositiveMrp > 0 ? existingPositiveMrp : resolvedMrp;
           savedProduct = await prisma.product.upsert({
             where: { barcode },

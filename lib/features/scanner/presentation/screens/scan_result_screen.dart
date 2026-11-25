@@ -6,6 +6,7 @@ import 'package:priceshield/core/widgets/app_ui.dart';
 import 'package:priceshield/features/complaints/presentation/screens/complaint_screen.dart';
 import 'package:priceshield/features/deescalation/models/deescalation_data.dart';
 import 'package:priceshield/features/deescalation/presentation/screens/deescalation_screen.dart';
+import 'package:priceshield/features/scanner/models/terrain_context.dart';
 import 'package:priceshield/features/scanner/services/packaging_compliance_service.dart';
 
 class ScanResultScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class ScanResultScreen extends StatefulWidget {
     this.complianceResult,
     this.venueType = 'RETAIL',
     this.isStickerFlagged = false,
+    this.terrainType = TerrainType.plains,
+    this.itemFormType = ItemFormType.sealedPack,
   });
 
   final String name;
@@ -27,6 +30,8 @@ class ScanResultScreen extends StatefulWidget {
   final PackagingComplianceResult? complianceResult;
   final String venueType;
   final bool isStickerFlagged;
+  final TerrainType terrainType;
+  final ItemFormType itemFormType;
 
   @override
   State<ScanResultScreen> createState() => _ScanResultScreenState();
@@ -60,7 +65,58 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     final isRestaurantVenue = widget.venueType.trim().toUpperCase() == 'RESTAURANT';
     final hasComplianceIssue = widget.complianceResult?.hasViolation == true;
     final difference = widget.charged - widget.mrp;
-    final color = overcharged ? PriceShieldColors.danger : PriceShieldColors.success;
+
+    final terrainEval = TerrainEvaluation.evaluate(
+      mrp: widget.mrp,
+      charged: widget.charged,
+      terrain: widget.terrainType,
+      itemForm: widget.itemFormType,
+    );
+
+    // Primary card styling based on terrain and legality
+    final Color primaryColor;
+    final IconData primaryIcon;
+    final String primaryTitle;
+    final String primarySubtitle;
+
+    switch (terrainEval.verdictType) {
+      case TerrainVerdictType.cookedExempt:
+        primaryColor = PriceShieldColors.navy;
+        primaryIcon = Icons.soup_kitchen_rounded;
+        primaryTitle = 'Cooked Dhaba Food (MRP Exempt)';
+        primarySubtitle = 'Under SC FHRAI 2017: Service meal is exempt from packaged MRP';
+        break;
+      case TerrainVerdictType.fairPorterageAllowance:
+        primaryColor = const Color(0xff0D9488);
+        primaryIcon = Icons.hiking_rounded;
+        primaryTitle = 'Fair Mountain Porterage';
+        primarySubtitle = 'Extra \u{20B9}${difference.toStringAsFixed(0)} within DM / Shrine Board porterage guidelines';
+        break;
+      case TerrainVerdictType.illegalHillSurcharge:
+        primaryColor = PriceShieldColors.danger;
+        primaryIcon = Icons.terrain_rounded;
+        primaryTitle = 'Illegal Hill Station Surcharge';
+        primarySubtitle = 'Charged \u{20B9}${difference.toStringAsFixed(2)} extra on road-connected hill station';
+        break;
+      case TerrainVerdictType.extortionPriceGouging:
+        primaryColor = const Color(0xff991B1B);
+        primaryIcon = Icons.warning_rounded;
+        primaryTitle = 'Predatory Mountain Price Gouging';
+        primarySubtitle = 'Extortionate demand: \u{20B9}${widget.charged.toStringAsFixed(0)} on \u{20B9}${widget.mrp.toStringAsFixed(0)} pack (+\u{20B9}${difference.toStringAsFixed(0)})';
+        break;
+      case TerrainVerdictType.withinMrp:
+        primaryColor = PriceShieldColors.success;
+        primaryIcon = Icons.verified_rounded;
+        primaryTitle = 'Price is within MRP';
+        primarySubtitle = 'Fair transaction complying with Legal Metrology Rules';
+        break;
+      case TerrainVerdictType.illegalPlainsOvercharge:
+        primaryColor = PriceShieldColors.danger;
+        primaryIcon = Icons.warning_amber_rounded;
+        primaryTitle = 'Overcharge detected';
+        primarySubtitle = 'You were charged \u{20B9}${difference.toStringAsFixed(2)} extra.';
+        break;
+    }
 
     return Scaffold(
       backgroundColor: PriceShieldColors.background,
@@ -144,33 +200,186 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
           // Primary Price Status Card
           AppCard(
-            color: color,
+            color: primaryColor,
             child: Column(
               children: [
                 Icon(
-                  overcharged ? Icons.warning_amber_rounded : Icons.verified_rounded,
+                  primaryIcon,
                   color: Colors.white,
                   size: 44,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  overcharged ? 'Overcharge detected' : 'Price is within MRP',
+                  primaryTitle,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (overcharged) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'You were charged \u{20B9}${difference.toStringAsFixed(2)} extra.',
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
-                  ),
-                ],
+                const SizedBox(height: 6),
+                Text(
+                  primarySubtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
               ],
             ),
           ),
+
+          // Terrain & Mountain Context Card
+          if (widget.terrainType != TerrainType.plains ||
+              widget.itemFormType == ItemFormType.cookedDhaba) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 14),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: terrainEval.isViolation
+                    ? const Color(0xffFEF2F2)
+                    : (terrainEval.isFairAllowance
+                        ? const Color(0xffF0FDFA)
+                        : const Color(0xffF8FAFC)),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: terrainEval.isViolation
+                      ? const Color(0xffFCA5A5)
+                      : (terrainEval.isFairAllowance
+                          ? const Color(0xff5EEAD4)
+                          : const Color(0xffCBD5E1)),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: terrainEval.isViolation
+                              ? const Color(0xffFEE2E2)
+                              : (terrainEval.isFairAllowance
+                                  ? const Color(0xffCCFBF1)
+                                  : const Color(0xffE2E8F0)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          widget.itemFormType == ItemFormType.cookedDhaba
+                              ? Icons.soup_kitchen_rounded
+                              : (widget.terrainType == TerrainType.remoteTrek
+                                  ? Icons.hiking_rounded
+                                  : Icons.terrain_rounded),
+                          color: terrainEval.isViolation
+                              ? const Color(0xffB91C1C)
+                              : (terrainEval.isFairAllowance
+                                  ? const Color(0xff0F766E)
+                                  : PriceShieldColors.navy),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.itemFormType == ItemFormType.cookedDhaba
+                                  ? 'DHABA / COOKED FOOD REGULATION'
+                                  : (widget.terrainType == TerrainType.remoteTrek
+                                      ? 'REMOTE TREK & MULE PORTERAGE CONTEXT'
+                                      : 'MOTORABLE HILL STATION LOGISTICS'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                                color: terrainEval.isViolation
+                                    ? const Color(0xffB91C1C)
+                                    : (terrainEval.isFairAllowance
+                                        ? const Color(0xff0F766E)
+                                        : PriceShieldColors.navy),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              terrainEval.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: terrainEval.isViolation
+                                    ? const Color(0xff991B1B)
+                                    : (terrainEval.isFairAllowance
+                                        ? const Color(0xff115E59)
+                                        : const Color(0xff1E293B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    terrainEval.explanation,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: terrainEval.isViolation
+                          ? const Color(0xff7F1D1D)
+                          : (terrainEval.isFairAllowance
+                              ? const Color(0xff134E4A)
+                              : const Color(0xff334155)),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: terrainEval.isViolation
+                            ? const Color(0xffFECACA)
+                            : (terrainEval.isFairAllowance
+                                ? const Color(0xff99F6E4)
+                                : const Color(0xffE2E8F0)),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.gavel_rounded,
+                          size: 16,
+                          color: terrainEval.isViolation
+                              ? const Color(0xffB91C1C)
+                              : (terrainEval.isFairAllowance
+                                  ? const Color(0xff0F766E)
+                                  : PriceShieldColors.navy),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            terrainEval.legalAdvice,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: terrainEval.isViolation
+                                  ? const Color(0xff991B1B)
+                                  : (terrainEval.isFairAllowance
+                                      ? const Color(0xff115E59)
+                                      : const Color(0xff1E293B)),
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Packaging Compliance Alert Card (Prominent, amber border, shield icon, legal advice)
           if (hasComplianceIssue) ...[
@@ -331,14 +540,16 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isRestaurantVenue
+                    color: (isRestaurantVenue || terrainEval.isExempt || terrainEval.isFairAllowance)
                         ? const Color(0xffFEF3C7)
-                        : PriceShieldColors.mint,
+                        : (!terrainEval.isViolation
+                            ? PriceShieldColors.mint
+                            : PriceShieldColors.mint),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     Icons.lock_outline_rounded,
-                    color: isRestaurantVenue
+                    color: (isRestaurantVenue || terrainEval.isExempt || terrainEval.isFairAllowance)
                         ? const Color(0xffB45309)
                         : PriceShieldColors.primary,
                     size: 20,
@@ -352,9 +563,13 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                       Text(
                         isRestaurantVenue
                             ? 'Formal MRP Docket Not Applicable (Dine-In)'
-                            : (!overcharged
-                                ? 'Legal Docket Locked (Within MRP)'
-                                : 'Legal Notice & Docket Locked Until Logged'),
+                            : (terrainEval.isExempt
+                                ? 'Formal MRP Docket Not Applicable (Cooked Meal)'
+                                : (terrainEval.isFairAllowance
+                                    ? 'No Legal Violation (Fair Porterage Allowance)'
+                                    : (!overcharged
+                                        ? 'Legal Docket Locked (Within MRP)'
+                                        : 'Legal Notice & Docket Locked Until Logged'))),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -363,10 +578,14 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                       const SizedBox(height: 4),
                       Text(
                         isRestaurantVenue
-                            ? 'Under SC FHRAI (2017), seated dine-in restaurants are exempt from MRP limits. If this was a retail shop or counter takeaway, go back and select Retail Shop.'
-                            : (!overcharged
-                                ? 'No overcharge above printed MRP was detected. Official grievance dockets are only available after logging a retail overcharge complaint.'
-                                : 'To prevent unverified accusations, Legal Notice and Official Grievance Docket export unlock after you log a formal complaint with Packet MRP and transaction proof.'),
+                            ? 'Under SC FHRAI (2017), seated restaurants providing table service & ambiance are not restricted to printed MRP. However, if this was an over-the-counter takeaway or retail stall, MRP strictly applies.'
+                            : (terrainEval.isExempt
+                                ? 'Under SC FHRAI (2017), cooked food and hot beverages served at high altitude dhabas are exempt from packaged MRP limits.'
+                                : (terrainEval.isFairAllowance
+                                    ? 'Charge is within official District Administration approved porterage rate guidelines for non-motorable mule trails.'
+                                    : (!overcharged
+                                        ? 'No overcharge above printed MRP was detected. Official grievance dockets are only available after logging a retail overcharge complaint.'
+                                        : 'To prevent unverified accusations, Legal Notice and Official Grievance Docket export unlock after you log a formal complaint with Packet MRP and transaction proof.'))),
                         style: const TextStyle(
                           color: PriceShieldColors.muted,
                           fontSize: 12,
@@ -382,8 +601,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
           const SizedBox(height: 16),
 
-          // Actions when retail overcharge is detected
-          if (overcharged && !isRestaurantVenue) ...[
+          // Actions when overcharge / violation is detected
+          if (terrainEval.isViolation && !isRestaurantVenue) ...[
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
@@ -420,7 +639,12 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                       barcode: widget.barcode,
                       mrp: widget.mrp,
                       charged: widget.charged,
-                      venueType: widget.venueType,
+                      venueType: widget.terrainType == TerrainType.remoteTrek
+                          ? 'HIGH_ALTITUDE_TREK'
+                          : widget.venueType,
+                      initialNotes: widget.terrainType == TerrainType.remoteTrek
+                          ? 'Mountain trek overcharge recorded. Charged ₹${widget.charged} vs printed MRP ₹${widget.mrp} (Overcharge: ₹${difference.toStringAsFixed(2)}). District Magistrate Approved Rate List violation reported.'
+                          : null,
                     ),
                   ),
                 ),
@@ -429,25 +653,251 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: () => _openStealthSafeExitSheet(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xff4338CA),
-                  side: const BorderSide(color: Color(0xffA5B4FC), width: 1.5),
-                  backgroundColor: const Color(0xffEEF2FF),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            if (widget.terrainType == TerrainType.remoteTrek) ...[
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openMountainSafeExitSheet(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff065F46),
+                    side: const BorderSide(color: Color(0xff34D399), width: 1.5),
+                    backgroundColor: const Color(0xffECFDF5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.hiking_rounded, color: Color(0xff059669)),
+                  label: const Text(
+                    '🏔️ Mountain Safe-Exit ("Pehle Suraksha, Baad Me Ghero")',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                 ),
-                icon: const Icon(Icons.security_rounded, color: Color(0xff4F46E5)),
-                label: const Text(
-                  '🛡️ Stealth Safe-Exit ("Lado Mat, Baad Me Ghero")',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ] else ...[
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openStealthSafeExitSheet(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xff4338CA),
+                    side: const BorderSide(color: Color(0xffA5B4FC), width: 1.5),
+                    backgroundColor: const Color(0xffEEF2FF),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.security_rounded, color: Color(0xff4F46E5)),
+                  label: const Text(
+                    '🛡️ Stealth Safe-Exit ("Lado Mat, Baad Me Ghero")',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                 ),
+              ),
+            ],
+          ] else if (terrainEval.isFairAllowance) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xffF0FDFA),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xff99F6E4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.thumb_up_alt_rounded, color: Color(0xff0D9488), size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Fair Mountain Porterage: This markup is within District Magistrate approved porterage allowances for mule transport.',
+                      style: TextStyle(fontSize: 12, color: Color(0xff115E59), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (terrainEval.isExempt) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xffF1F5F9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xffCBD5E1)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Color(0xff475569), size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Prepared Food Exemption: Under Supreme Court jurisprudence, hot meals and dhaba cooking are priced by the establishment.',
+                      style: TextStyle(fontSize: 12, color: Color(0xff334155), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  void _openMountainSafeExitSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xffA7F3D0)),
+                    ),
+                    child: const Icon(Icons.terrain_rounded, color: Color(0xff059669), size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mountain Safe-Exit Mode',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xff064E3B),
+                          ),
+                        ),
+                        Text(
+                          '“Pehle Suraksha, Baad Me Ghero” • Life & Safety First',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff047857),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xffFEF3C7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xffFCD34D)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Color(0xffB45309), size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'On cliffside trails, high altitudes, and remote passes, arguing with stall owners risks personal safety, hypothermia, or getting stranded. Follow this 4-step safe protocol.',
+                        style: TextStyle(fontSize: 12, color: Color(0xff78350F), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              _buildStealthStep(
+                stepNum: '1',
+                title: 'Prioritize Physical Survival & Stay Calm',
+                desc:
+                    'Pay the demanded amount quietly and stay hydrated. Never engage in heated arguments on steep mountain trails or in extreme weather.',
+                icon: Icons.favorite_rounded,
+              ),
+              const SizedBox(height: 12),
+              _buildStealthStep(
+                stepNum: '2',
+                title: 'Note Tent/Stall ID or UPI QR Code',
+                desc:
+                    'Silently snap a photo of the stall number, tent banner, or merchant UPI QR stand. UPI merchant VPA permanently proves the shopkeeper’s identity.',
+                icon: Icons.qr_code_scanner_rounded,
+              ),
+              const SizedBox(height: 12),
+              _buildStealthStep(
+                stepNum: '3',
+                title: 'Queue Offline on Local Device Storage',
+                desc:
+                    'High mountain routes usually have zero mobile signal. PriceShield saves this scan locally with timestamp and offline GPS coordinates.',
+                icon: Icons.cloud_off_rounded,
+              ),
+              const SizedBox(height: 12),
+              _buildStealthStep(
+                stepNum: '4',
+                title: 'File at Base Camp / Roadhead',
+                desc:
+                    'When you return to base camp with mobile network, submit this report directly to the District Magistrate (DM), Shrine Board, or NCH 1915.',
+                icon: Icons.assignment_turned_in_rounded,
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ComplaintScreen(
+                          name: widget.name,
+                          barcode: widget.barcode,
+                          mrp: widget.mrp,
+                          charged: widget.charged,
+                          venueType: 'HIGH_ALTITUDE_TREK',
+                          initialNotes:
+                              'Mountain trek price gouging documented via PriceShield Mountain Safe-Exit Protocol. Charged ₹${widget.charged} vs printed MRP ₹${widget.mrp} (Porterage markup ₹${(widget.charged - widget.mrp).toStringAsFixed(2)}). Official District Magistrate Approved Rate List violation reported from base camp.',
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff059669),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save Offline & File from Base Camp', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Close / I Am Safe on the Trail', style: TextStyle(color: PriceShieldColors.muted)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

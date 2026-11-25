@@ -4,6 +4,7 @@
  */
 
 import { inferFmcgMrp } from './indian-fmcg-heuristics.js';
+import { resolveGs1IndiaBrand } from './gs1-india-resolver.js';
 
 const OFF_BASE_URL = 'https://world.openfoodfacts.org/api/v2/product';
 const OBF_BASE_URL = 'https://world.openbeautyfacts.org/api/v2/product';
@@ -84,6 +85,36 @@ function isPromoLine(line) {
   );
 }
 
+function sanitizeOcrRupeeArtifact(rawAmount, rawDigits, candidateFull, fullText, quantityText) {
+  if (rawAmount >= 700 && String(rawDigits).startsWith('7') && String(rawDigits).length >= 4) {
+    const hasExplicitCurrency = /(?:Rs\.?|INR|₹)/i.test(candidateFull);
+    const candidateWithout7 = parseFloat(String(rawDigits).slice(1));
+    if (Number.isFinite(candidateWithout7) && candidateWithout7 >= 10) {
+      const parsedQty = parseQuantityInBaseUnits(quantityText);
+      const uspRegex =
+        /(?:Rs\.?|₹|INR|USP|SF)?\s*[:.\-]?\s*(\d+(?:\.\d{1,3})?)\s*(?:\/[-–])?\s*(?:per\s*(?:\d+\s*)?(?:g|gm|gms|kg|ml|l|ltr|litre|unit)|\/\s*(?:\d+\s*)?(?:g|gm|kg|ml|l)\b)/i;
+      const uspMatch = uspRegex.exec(fullText);
+      if (uspMatch) {
+        const unitRate = parseFloat(uspMatch[1]);
+        if (Number.isFinite(unitRate) && unitRate > 0 && parsedQty && parsedQty.value > 0) {
+          const expectedMrp = unitRate * parsedQty.value;
+          const ratioRaw = rawAmount / expectedMrp;
+          const ratioStripped = candidateWithout7 / expectedMrp;
+          if (ratioStripped >= 0.7 && ratioStripped <= 1.3 && ratioRaw > 3.0) {
+            return candidateWithout7;
+          }
+        }
+      }
+      if (!hasExplicitCurrency && /^7[1-9]\d{2}(?:\.\d{1,2})?$/.test(rawDigits)) {
+        if (/(?:99|50|00|49|90|95)(?:\.\d{1,2})?$/.test(rawDigits)) {
+          return candidateWithout7;
+        }
+      }
+    }
+  }
+  return rawAmount;
+}
+
 /**
  * Extracts Indian retail MRP from product titles, packaging descriptions, or raw OCR text.
  * Rejects unit rates (e.g. "Rs.0.25 per g"), dates, promo vouchers, and gram/ml quantities,
@@ -116,7 +147,10 @@ export function extractMrpFromText(text, { quantityText = '' } = {}) {
       const after = tail.slice(matchEnd);
       if (isDateOrFraction(tail, digitStart, digits)) continue;
       if (hasUnexpectedAlphaSuffix(after) || isUnitRateSuffix(after) || isQuantityOrOtherSuffix(after)) continue;
-      const rounded = roundMrp(parseFloat(digits));
+      const parsedVal = parseFloat(digits);
+      if (!Number.isFinite(parsedVal)) continue;
+      const sanitized = sanitizeOcrRupeeArtifact(parsedVal, digits, candidate[0], text, quantityText);
+      const rounded = roundMrp(sanitized);
       if (rounded >= 1) return rounded;
     }
 
@@ -127,8 +161,13 @@ export function extractMrpFromText(text, { quantityText = '' } = {}) {
           nextLine,
         );
       if (nextMatch) {
-        const rounded = roundMrp(parseFloat(nextMatch[1]));
-        if (rounded >= 1) return rounded;
+        const nextDigits = nextMatch[1];
+        const nextParsed = parseFloat(nextDigits);
+        if (Number.isFinite(nextParsed)) {
+          const sanitized = sanitizeOcrRupeeArtifact(nextParsed, nextDigits, nextMatch[0], text, quantityText);
+          const rounded = roundMrp(sanitized);
+          if (rounded >= 1) return rounded;
+        }
       }
     }
   }
@@ -222,7 +261,12 @@ export function formatProductName(product, barcode) {
   }
 
   if (!displayName) {
-    displayName = `Product ${barcode}`;
+    const gs1 = resolveGs1IndiaBrand(barcode);
+    if (gs1) {
+      displayName = `${gs1.brandName} (${gs1.category})`;
+    } else {
+      displayName = `Product ${barcode}`;
+    }
   }
 
   if (quantity && !displayName.toLowerCase().includes(quantity.toLowerCase())) {
@@ -463,6 +507,7 @@ async function fetchMrpFromOffImageOcr(product, barcode, source, fetchFn, timeou
 }
 
 function parseProductPayload(product, barcode, source) {
+  const gs1 = resolveGs1IndiaBrand(barcode);
   const name = formatProductName(product, barcode);
   let mrp = extractProductMrp(product);
   const brand =
@@ -470,6 +515,7 @@ function parseProductPayload(product, barcode, source) {
       product.brands ||
       product.brand_owner ||
       product.brands_tags?.[0] ||
+      gs1?.brandName ||
       ''
     )
       .split(',')[0]
@@ -484,6 +530,7 @@ function parseProductPayload(product, barcode, source) {
     (
       product.categories ||
       product.categories_tags?.[0] ||
+      gs1?.category ||
       ''
     )
       .split(',')[0]

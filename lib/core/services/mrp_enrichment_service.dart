@@ -116,6 +116,50 @@ class MrpEnrichmentService {
         .hasMatch(afterText);
   }
 
+  /// Sanitizes common Indian OCR errors where the ₹ (Rupee) glyph is misread as the digit '7'.
+  /// E.g. "MRP : ₹ 599.00" -> OCR produces "MRP : 7599.00".
+  static double _sanitizeOcrRupeeArtifact(
+    double rawAmount,
+    String rawDigits,
+    String candidateFull,
+    String fullText,
+    String? quantityText,
+  ) {
+    if (rawAmount >= 700 && rawDigits.startsWith('7') && rawDigits.length >= 4) {
+      final hasExplicitCurrency =
+          RegExp(r'(?:Rs\.?|INR|₹)', caseSensitive: false).hasMatch(candidateFull);
+      final candidateWithout7 = double.tryParse(rawDigits.substring(1));
+      if (candidateWithout7 != null && candidateWithout7 >= 10) {
+        // 1. Check against Legal Metrology USP if present in text
+        final parsedQty = _parseQuantityInBaseUnits(quantityText);
+        final uspRegex = RegExp(
+          r'(?:Rs\.?|₹|INR|USP|SF)?\s*[:.\-]?\s*(\d+(?:\.\d{1,3})?)\s*(?:\/[-–])?\s*(?:per\s*(?:\d+\s*)?(?:g|gm|gms|kg|ml|l|ltr|litre|unit)|\/\s*(?:\d+\s*)?(?:g|gm|kg|ml|l)\b)',
+          caseSensitive: false,
+        );
+        final uspMatch = uspRegex.firstMatch(fullText);
+        if (uspMatch != null) {
+          final unitRate = double.tryParse(uspMatch.group(1)!);
+          if (unitRate != null && unitRate > 0 && parsedQty != null && parsedQty.value > 0) {
+            final expectedMrp = unitRate * parsedQty.value;
+            final ratioRaw = rawAmount / expectedMrp;
+            final ratioStripped = candidateWithout7 / expectedMrp;
+            if ((ratioStripped >= 0.7 && ratioStripped <= 1.3) && (ratioRaw > 3.0)) {
+              return candidateWithout7;
+            }
+          }
+        }
+        // 2. If no explicit currency symbol precedes the 7, and digits match 7[1-9]99 (e.g. 7599 -> 599, 7499 -> 499)
+        if (!hasExplicitCurrency &&
+            RegExp(r'^7[1-9]\d{2}(?:\.\d{1,2})?$').hasMatch(rawDigits)) {
+          if (RegExp(r'(?:99|50|00|49|90|95)(?:\.\d{1,2})?$').hasMatch(rawDigits)) {
+            return candidateWithout7;
+          }
+        }
+      }
+    }
+    return rawAmount;
+  }
+
   static bool _isDateOrFraction(String fullText, int matchIndex, String matchedDigits) {
     final prevChar = matchIndex > 0 ? fullText[matchIndex - 1] : '';
     final endIdx = matchIndex + matchedDigits.length;
@@ -198,7 +242,16 @@ class MrpEnrichmentService {
               _isQuantityOrOtherSuffix(after)) {
             continue;
           }
-          final rounded = _roundMrp(double.tryParse(digits));
+          final parsedVal = double.tryParse(digits);
+          if (parsedVal == null) continue;
+          final sanitizedVal = _sanitizeOcrRupeeArtifact(
+            parsedVal,
+            digits,
+            full,
+            text,
+            quantityText,
+          );
+          final rounded = _roundMrp(sanitizedVal);
           if (rounded != null && rounded >= 1) return rounded;
         }
 
@@ -209,8 +262,19 @@ class MrpEnrichmentService {
             caseSensitive: false,
           ).firstMatch(nextLine);
           if (nextMatch != null) {
-            final rounded = _roundMrp(double.tryParse(nextMatch.group(1)!));
-            if (rounded != null && rounded >= 1) return rounded;
+            final nextDigits = nextMatch.group(1)!;
+            final nextParsed = double.tryParse(nextDigits);
+            if (nextParsed != null) {
+              final sanitizedNext = _sanitizeOcrRupeeArtifact(
+                nextParsed,
+                nextDigits,
+                nextMatch.group(0)!,
+                text,
+                quantityText,
+              );
+              final rounded = _roundMrp(sanitizedNext);
+              if (rounded != null && rounded >= 1) return rounded;
+            }
           }
         }
       }
